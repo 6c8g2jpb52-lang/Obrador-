@@ -214,6 +214,8 @@ button.link{border:0;background:none;padding:0;min-height:0;color:var(--caramelo
 .vb-c{flex:1;width:100%;max-width:34px;display:flex;align-items:flex-end;border-bottom:1px solid var(--line)}
 .vb-f{width:100%;background:var(--caramelo);border-radius:4px 4px 0 0}
 .vb-l{font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap}
+.al-t td,.al-t th{text-align:center}.al-t td:first-child,.al-t th:first-child{text-align:left;white-space:normal;min-width:120px}
+.al-si{color:var(--caramelo);font-weight:800}
 </style>
 </head>
 <body>
@@ -232,6 +234,7 @@ button.link{border:0;background:none;padding:0;min-height:0;color:var(--caramelo
 <div class="toast" id="toast" hidden></div>
 <input type="file" id="ph-in" accept="image/*" capture="environment" hidden>
 <input type="file" id="bk-in" accept=".json,application/json" hidden>
+<input type="file" id="fi-in" accept=".json,application/json" hidden>
 <script>
 'use strict';
 /* ===== Utilidades ===== */
@@ -376,6 +379,7 @@ function vTartas(){
    '<button class="tile add" data-act="sabor-nuevo" style="width:100%;margin-top:12px">+ Añadir sabor</button>';
   const dias=[...new Set(Object.values(M.t).map(x=>x.fecha))];if(!dias.includes(t))dias.push(t);dias.sort().reverse();
   if(!diaSel||!dias.includes(diaSel))diaSel=t;
+  h+='<button class="btn full" data-act="alergenos" style="margin-top:10px">Tabla de alérgenos</button>';
   h+='<h3>Tartas hechas el día</h3><select id="dia" aria-label="Elegir día">'+dias.slice(0,120).map(d=>{const n=udsDia(d);
     return '<option value="'+d+'"'+(d===diaSel?' selected':'')+'>'+diaLabel(d)+' · '+n+' tarta'+(n===1?'':'s')+'</option>'}).join('')+'</select><div id="dia-l" style="margin-top:10px">'+listaDia(diaSel)+'</div>';
   return h}
@@ -384,7 +388,7 @@ function guardarCuenta(){
   const c=M.cfg,f=diaReg||today(),lista=c.sabores.filter(s=>cnt[s.id]>0);if(!lista.length)return;
   const ps=lista.map(s=>saveRec('t',{id:uid(),saborId:s.id,sabor:s.nombre,fecha:f,uds:cnt[s.id],
     ings:s.ings.map(ing=>{const e=loteActual(ing,f);return e?{ing:ing,lote:e.lote||'',marca:e.marca||'',eid:e.id}:{ing:ing,lote:'',marca:'',eid:''}}),
-    horno:num(s.horno),min:num(s.min),nota:'',ts:Date.now()}));
+    horno:num(s.horno),min:num(s.min),nota:'',lote:loteJuliano(f),cad:sumarDias(f,vidaDe(s)),alergenos:(s.alergenos||[]).slice(),ts:Date.now()}));
   const txt=lista.map(s=>cnt[s.id]+' '+s.nombre).join(', ');
   Promise.all(ps).then(()=>{cnt={};diaSel=f;toast('Guardado: '+txt);render()}).catch(()=>{})}
 const WD=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
@@ -396,7 +400,7 @@ function listaDia(d){const l=tartasOrden().filter(x=>x.fecha===d);
   const res={};l.forEach(x=>{res[x.sabor]=(res[x.sabor]||0)+(+x.uds||0)});
   return '<div class="small" style="margin-bottom:8px">'+Object.keys(res).map(k=>'<b>'+res[k]+'</b> '+esc(k)).join(' · ')+'</div>'+l.map(cardTarta).join('')}
 function cardTarta(t){
-  return '<button class="card" data-act="ver-tarta" data-id="'+esc(t.id)+'"><div class="th"><b>'+fshort(t.fecha)+' · '+esc(t.sabor)+'</b><span class="pill">'+t.uds+' ud.</span></div><div class="lots">'+
+  return '<button class="card" data-act="ver-tarta" data-id="'+esc(t.id)+'"><div class="th"><b>'+fshort(t.fecha)+' · '+esc(t.sabor)+'</b><span class="pill">'+t.uds+' ud.</span></div>'+(t.lote?'<div class="small" style="margin:-2px 0 6px">Lote <span class="code">'+esc(t.lote)+'</span>'+(t.cad?' · consumir antes del '+fdate(t.cad):'')+'</div>':'')+'<div class="lots">'+
    t.ings.map(i=>'<span class="k">'+esc(i.ing)+'</span><span>'+(i.lote?'<span class="code">'+esc(i.lote)+'</span>':(i.eid?'<span class="muted">en la foto</span>':'<span class="warn">sin lote</span>'))+(i.marca?' <span class="muted">'+esc(i.marca)+'</span>':'')+'</span>').join('')+'</div></button>'}
 function formTarta(sid){
   const s=M.cfg.sabores.find(x=>x.id===sid);if(!s)return;let uds=1;const sel={};
@@ -419,10 +423,11 @@ function formTarta(sid){
   $('#ta-save').onclick=()=>{
     const fecha=$('#ta-f').value||today();
     const ings=s.ings.map(ing=>{const e=elegido(ing);return e?{ing:ing,lote:e.lote||'',marca:e.marca||'',eid:e.id}:{ing:ing,lote:'',marca:'',eid:''}});
-    const o={id:uid(),saborId:s.id,sabor:s.nombre,fecha:fecha,uds:uds,ings:ings,horno:num($('#ta-h').value),min:num($('#ta-mi').value),nota:$('#ta-n').value.trim(),ts:Date.now()};
+    const o={id:uid(),saborId:s.id,sabor:s.nombre,fecha:fecha,uds:uds,ings:ings,horno:num($('#ta-h').value),min:num($('#ta-mi').value),nota:$('#ta-n').value.trim(),lote:loteJuliano(fecha),cad:sumarDias(fecha,vidaDe(s)),alergenos:(s.alergenos||[]).slice(),ts:Date.now()};
     saveRec('t',o).then(()=>{closeSheet();toast('Guardada: '+uds+' × '+s.nombre)}).catch(()=>{})}}
 function verTarta(id){const t=M.t[id];if(!t)return;
   sheet('<h2>'+esc(t.sabor)+'</h2><div class="small muted" style="margin:-6px 0 12px">'+fdate(t.fecha)+' · '+t.uds+' ud.'+(t.horno?' · horno '+t.horno+' °C':'')+(t.min?' · '+t.min+' min':'')+'</div>'+
+   (t.lote?'<div class="card" style="background:var(--mantequilla)"><div>Lote de la tarta: <span class="code">'+esc(t.lote)+'</span></div><div class="small">Consumo preferente: '+fdate(t.cad)+'</div>'+((t.alergenos||[]).length?'<div class="small"><b>Alérgenos:</b> '+esc(t.alergenos.join(', '))+'</div>':'')+'</div>':'')+
    '<div class="lots">'+t.ings.map(i=>'<span class="k">'+esc(i.ing)+'</span><span>'+(i.lote?'<span class="code">'+esc(i.lote)+'</span>':'<span class="warn">sin lote</span>')+(i.marca?' · '+esc(i.marca):'')+'</span>').join('')+'</div>'+
    (t.nota?'<p class="small">'+esc(t.nota)+'</p>':'')+
    '<div class="fotos">'+t.ings.filter(i=>i.eid&&M.e[i.eid]&&M.e[i.eid].foto).map(i=>'<img data-foto="'+esc(i.eid)+'" alt="Foto del lote de '+esc(i.ing)+'">').join('')+'</div>'+
@@ -444,7 +449,7 @@ function vMeses(){
   return h+'</div>'}
 function buscar(){const q=norm($('#q').value).replace(/\s/g,''),box=$('#qres');$('#meses').hidden=!!q;
   if(!q){box.innerHTML='';return}
-  const ts=tartasOrden().filter(t=>t.ings.some(i=>norm(i.lote).replace(/\s/g,'').includes(q)));
+  const ts=tartasOrden().filter(t=>norm(t.lote).replace(/\s/g,'')===q||t.ings.some(i=>norm(i.lote).replace(/\s/g,'').includes(q)));
   const es=Object.values(M.e).filter(e=>norm(e.lote).replace(/\s/g,'').includes(q));
   box.innerHTML=(es.length?'<h3>Entradas con ese lote</h3>'+es.map(cardEntrada).join(''):'')+
    (ts.length?'<h3>Tartas hechas con ese lote ('+ts.reduce((a,t)=>a+(+t.uds||0),0)+')</h3>'+ts.map(cardTarta).join(''):'')+
@@ -503,7 +508,8 @@ function hacerCopia(){
 function limpiarCopia(o){const N=v=>{const n=Number(v);return isFinite(n)?n:0},Nn=v=>v==null||v===''?null:N(v),obj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
   ['e','t','c','l','d','fotos'].forEach(k=>{o[k]=obj(o[k])});
   const c=o.cfg;['negocio','rgsean','titular','direccion','horaAviso'].forEach(k=>{if(c[k]!=null)c[k]=String(c[k])});c.ingredientes=Array.isArray(c.ingredientes)?c.ingredientes.map(String):[];c.limpieza=Array.isArray(c.limpieza)?c.limpieza.map(String):[];
-  c.sabores=(Array.isArray(c.sabores)?c.sabores:[]).map(s=>({id:String(s.id),nombre:String(s.nombre||''),ings:Array.isArray(s.ings)?s.ings.map(String):[],horno:String(s.horno||''),min:String(s.min||'')}));
+  c.sabores=(Array.isArray(c.sabores)?c.sabores:[]).map(s=>({id:String(s.id),nombre:String(s.nombre||''),ings:Array.isArray(s.ings)?s.ings.map(String):[],horno:String(s.horno||''),min:String(s.min||''),alergenos:(Array.isArray(s.alergenos)?s.alergenos:[]).map(String).filter(a=>ALERG.includes(a)),vida:s.vida==null?3:N(s.vida),conservacion:String(s.conservacion||''),descripcion:String(s.descripcion||'')}));
+  const F8=/^\d{4}-\d{2}-\d{2}$/;['e','t','c','l','d'].forEach(k=>Object.keys(o[k]).forEach(id=>{const r=o[k][id];if(!r||typeof r!=='object'||!F8.test(String(r.fecha))){delete o[k][id];return}['cad','vence'].forEach(f=>{if(r[f]!=null&&r[f]!==''&&!F8.test(String(r[f])))r[f]=''});if(r.lote!=null)r.lote=String(r.lote);if(k==='t'&&Array.isArray(r.alergenos))r.alergenos=r.alergenos.map(String).filter(a=>ALERG.includes(a))}));
   c.camaras=(Array.isArray(c.camaras)?c.camaras:[]).map(x=>({id:String(x.id),nombre:String(x.nombre||''),min:N(x.min),max:N(x.max)}));
   Object.values(o.c).forEach(r=>{r.v=N(r.v);r.ok=!!r.ok});Object.values(o.l).forEach(r=>{r.i=N(r.i)});
   Object.values(o.t).forEach(t=>{t.uds=N(t.uds);t.horno=Nn(t.horno);t.min=Nn(t.min);if(!Array.isArray(t.ings))t.ings=[]});
@@ -539,6 +545,7 @@ function ajustes(){
        '<div class="two"><div><label>Horno (°C)</label><input class="aj-sh" inputmode="numeric" value="'+esc(s.horno||'')+'"></div><div><label>Minutos</label><input class="aj-sm" inputmode="numeric" value="'+esc(s.min||'')+'"></div></div>'+
        '<button type="button" class="btn sm danger" data-del="'+esc(s.id)+'" style="margin-top:10px">Quitar sabor</button></div>').join('')+
      '<button type="button" class="btn full" id="aj-add">+ Añadir sabor</button>'+
+     '<button type="button" class="btn full" id="aj-fi" style="margin-top:10px">Importar fichas técnicas</button>'+
      '<label for="aj-i">Ingredientes (uno por línea)</label><textarea id="aj-i" rows="6">'+esc(w.ingredientes.join('\n'))+'</textarea>'+
      '<label for="aj-c">Cámaras (una por línea: nombre ; mínimo ; máximo)</label><textarea id="aj-c" rows="3">'+esc(w.camaras.map(c=>c.nombre+' ; '+c.min+' ; '+c.max).join('\n'))+'</textarea>'+
      '<label for="aj-l">Tareas de limpieza (una por línea)</label><textarea id="aj-l" rows="4">'+esc(w.limpieza.join('\n'))+'</textarea>'+
@@ -550,6 +557,7 @@ function ajustes(){
      ('Notification' in window?'<button type="button" class="btn full" id="aj-badge" style="margin-top:10px">Mostrar el número de avisos en el icono</button>':'')+
      '<h3>Copia de seguridad</h3><div class="small muted">Tus datos están solo en este móvil. '+(ultimaCopia()?'Última copia: '+fdate(ultimaCopia())+'.':'Aún no has hecho ninguna copia.')+'</div>'+
      '<div class="two" style="margin-top:10px"><button class="btn" id="aj-cp">Hacer copia</button><button class="btn" id="aj-rs">Restaurar copia</button></div>'+'<h3>Copias automáticas en el móvil</h3><div class="small muted">Cada día, al abrir la app, se guarda sola una copia dentro del móvil (se guardan los últimos 14 días). Sirve si borras o cambias algo sin querer.</div><div id="snaps" style="margin-top:8px"></div>'));
+    $('#aj-fi').onclick=()=>$('#fi-in').click();
     $('#aj-i').onchange=()=>{leer();pintar()};
     $('#aj-add').onclick=()=>{leer();w.sabores.push({id:'s'+uid(),nombre:'',ings:w.ingredientes.slice(0,4),horno:'',min:''});pintar();const l=$$('.aj-sn');l[l.length-1].value='';l[l.length-1].focus()};
     $$('[data-del]').forEach(b=>confirmBtn(b,'Pulsa otra vez para quitarlo',()=>{leer();w.sabores=w.sabores.filter(s=>s.id!==b.dataset.del);pintar()}));
@@ -586,6 +594,7 @@ document.addEventListener('click',e=>{
   else if(d.act==='ajustes')ajustes();
   else if(d.act==='informe')informeSheet();
   else if(d.act==='stats')statsSheet();
+  else if(d.act==='alergenos')tablaAlergenos();
   else if(d.act==='avisos')verAvisos();
   else if(d.act==='av-go')irAviso(d);
   else if(d.act==='doc-nuevo')formDoc(d.tipo);
@@ -710,6 +719,8 @@ function formSabor(sid){const c=M.cfg,base=['Queso crema','Nata','Huevos','Azúc
    '<label>Ingredientes que lleva</label><div class="chips" id="ns-ch">'+lista.map(i=>chipIng(i,on(i))).join('')+'</div>'+
    '<div class="row-add"><input id="ns-new" placeholder="Otro ingrediente, ej. Galletas Oreo" aria-label="Otro ingrediente" autocomplete="off"><button type="button" class="btn" id="ns-add">Añadir</button></div>'+
    '<div class="hint">Lo marcas una vez. Cada vez que registres esta tarta se guardarán solos los lotes de estos ingredientes.</div>'+
+   '<label>Alérgenos que contiene</label><div class="chips" id="ns-al">'+ALERG.map(a=>chipIng(a,!!(s&&(s.alergenos||[]).includes(a)))).join('')+'</div>'+
+   '<label for="ns-v">Consumo preferente (días desde que la haces)</label><input id="ns-v" inputmode="numeric" value="'+esc(s&&s.vida!=null?s.vida:3)+'">'+
    '<details class="more"><summary>Horno (opcional)</summary><div class="two"><div><label for="ns-h">Horno (°C)</label><input id="ns-h" inputmode="numeric" value="'+esc(s&&s.horno||'')+'"></div>'+
    '<div><label for="ns-m">Minutos</label><input id="ns-m" inputmode="numeric" value="'+esc(s&&s.min||'')+'"></div></div></details>'+
    '<button class="btn pri big" id="ns-save">Guardar sabor</button>'+(s?'<button class="btn danger full" id="ns-del" style="margin-top:10px">Quitar este sabor</button>':''));
@@ -722,7 +733,7 @@ function formSabor(sid){const c=M.cfg,base=['Queso crema','Nata','Huevos','Azúc
     if(!n){toast('Escribe el nombre del sabor');return}if(!ings.length){toast('Marca al menos un ingrediente');return}
     if(c.sabores.some(x=>norm(x.nombre)===norm(n)&&(!s||x.id!==s.id))){toast('Ese sabor ya está');return}
     const w=JSON.parse(JSON.stringify(c));ings.forEach(i=>{if(!w.ingredientes.some(x=>norm(x)===norm(i)))w.ingredientes.push(i)});
-    const nuevo={id:s?s.id:'s'+uid(),nombre:n,ings:ings,horno:$('#ns-h').value.trim(),min:$('#ns-m').value.trim()};
+    const v=num($('#ns-v').value);const nuevo=Object.assign({},s||{},{id:s?s.id:'s'+uid(),nombre:n,ings:ings,horno:$('#ns-h').value.trim(),min:$('#ns-m').value.trim(),alergenos:$$('#ns-al input:checked').map(x=>x.value),vida:v==null?3:Math.max(0,Math.round(v))});
     if(s)w.sabores=w.sabores.map(x=>x.id===s.id?nuevo:x);else w.sabores.push(nuevo);
     saveCfg(w).then(()=>{closeSheet();toast((s?'Guardado: ':'Sabor añadido: ')+n)}).catch(()=>{})}}
 
@@ -800,8 +811,8 @@ function crearInforme(d,h,conFotos,conStats){
       '<tr><th>Días con limpieza registrada</th><td>'+new Set(L.map(x=>x.fecha)).size+'</td></tr><tr><th>Documentos</th><td>'+D.length+'</td></tr></tbody></table></section>';
     b+='<section><h2>1. Recepción de materias primas</h2>'+tabla(['Fecha','Ingrediente','Marca / proveedor','Lote','Caducidad','Foto','Factura'],
       E.map(e=>'<tr>'+td(fdate(e.fecha))+td(e.ing)+td(e.marca)+'<td class="lote">'+esc(e.lote||'en la foto')+'</td>'+td(e.cad?fdate(e.cad):'')+td(e.foto?'Sí':'No')+td(facturaDe(e.id)?'Sí':'No')+'</tr>'),'No hay entradas en este periodo.')+'</section>';
-    b+='<section><h2>2. Producción y trazabilidad</h2>'+tabla(['Fecha','Producto','Uds.','Lotes de los ingredientes'],
-      T.map(x=>'<tr>'+td(fdate(x.fecha))+td(x.sabor)+td(x.uds)+'<td>'+x.ings.map(i=>esc(i.ing)+': <span class="lote">'+(i.lote?esc(i.lote):(i.eid?'en la foto':'<span class="mal">sin lote</span>'))+'</span>'+(i.marca?' ('+esc(i.marca)+')':'')).join('<br>')+
+    b+='<section><h2>2. Producción y trazabilidad</h2>'+tabla(['Fecha','Producto','Lote','Uds.','Consumo pref.','Lotes de los ingredientes'],
+      T.map(x=>'<tr>'+td(fdate(x.fecha))+td(x.sabor)+'<td class="lote">'+esc(x.lote||'—')+'</td>'+td(x.uds)+td(x.cad?fdate(x.cad):'')+'<td>'+x.ings.map(i=>esc(i.ing)+': <span class="lote">'+(i.lote?esc(i.lote):(i.eid?'en la foto':'<span class="mal">sin lote</span>'))+'</span>'+(i.marca?' ('+esc(i.marca)+')':'')).join('<br>')+
         ((x.horno||x.min)?'<br><span class="nota">Horno: '+esc(x.horno?x.horno+' °C':'')+(x.min?' · '+esc(x.min)+' min':'')+'</span>':'')+'</td></tr>'),'No hay tartas registradas en este periodo.')+'</section>';
     b+='<section><h2>3. Control de temperaturas</h2><p>Rango permitido: '+c.camaras.map(x=>esc(x.nombre)+' de '+esc(x.min)+' a '+esc(x.max)+' °C').join(' · ')+'</p>'+
       tabla(['Fecha','Hora','Cámara','Temperatura','Resultado','Acción correctora'],C.map(x=>'<tr>'+td(fdate(x.fecha))+td(x.hora)+td(x.camNombre)+td(x.v+' °C')+'<td class="'+(x.ok?'bien':'mal')+'">'+(x.ok?'Correcta':'Fuera de rango')+'</td>'+td(x.accion)+'</tr>'),'No hay lecturas en este periodo.')+
@@ -811,7 +822,7 @@ function crearInforme(d,h,conFotos,conStats){
       (sinLimp.length?'<p class="aviso">Días sin limpieza registrada: '+esc(lista(sinLimp))+'</p>':'')+'</section>';
     b+='<section><h2>5. Documentación</h2>'+tabla(['Tipo','Proveedor / descripción','Fecha','Válido hasta','Estado'],D.map(x=>{const st=docEstado(x);
       return '<tr>'+td(x.tipo)+td(x.nombre)+td(fdate(x.fecha))+td(x.vence?fdate(x.vence):'')+'<td class="'+(st==='bad'?'mal':'')+'">'+(st==='bad'?'Caducado':st==='warn'?'Caduca pronto':'En vigor')+'</td></tr>'}),'No hay documentos.')+'</section>';
-    b+='<section><h2>6. Productos elaborados e ingredientes</h2>'+tabla(['Producto','Ingredientes'],c.sabores.map(s=>'<tr>'+td(s.nombre)+td(s.ings.join(', '))+'</tr>'),'No hay productos.')+'</section>';
+    b+='<section><h2>6. Productos elaborados e ingredientes</h2>'+tabla(['Producto','Ingredientes','Alérgenos','Consumo pref.','Conservación'],c.sabores.map(s=>'<tr>'+td(s.nombre)+td(s.ings.join(', '))+'<td><b>'+esc((s.alergenos||[]).join(', ')||'Sin indicar')+'</b></td>'+td(vidaDe(s)+' días')+td(s.conservacion||'0–4 °C')+'</tr>'),'No hay productos.')+'</section>';
     if(conStats)b+=statsInforme(d,h);
     const fotos=[];if(conFotos){E.forEach(e=>{if(F[e.id])fotos.push([F[e.id],'Lote de '+e.ing+' · '+(e.lote||'')+' · '+fdate(e.fecha)]);const f=facturaDe(e.id);if(f&&F['doc_'+f.id])fotos.push([F['doc_'+f.id],'Factura · '+(f.nombre||e.ing)+' · '+fdate(f.fecha)])});
       D.forEach(x=>{if(F['doc_'+x.id]&&!fotos.some(p=>p[0]===F['doc_'+x.id]))fotos.push([F['doc_'+x.id],x.tipo+(x.nombre?' · '+x.nombre:'')+' · '+fdate(x.fecha)])})}
@@ -871,6 +882,52 @@ function statsSheet(){let r='mes';
 function statsInforme(d,h){const s=datosStats(d,h);if(!s.total)return '<section><h2>7. Estadísticas de producción</h2><p class="vacio">No hay tartas en este periodo.</p></section>';
   return '<section><h2>7. Estadísticas de producción</h2><table class="res"><tbody><tr><th>Tartas elaboradas</th><td>'+s.total+'</td></tr><tr><th>Días de obrador</th><td>'+s.dias+'</td></tr><tr><th>Media por día</th><td>'+fmt1(s.media)+'</td></tr></tbody></table>'+
    '<table style="margin-top:10px"><thead><tr><th>Sabor</th><th>Tartas</th><th>%</th></tr></thead><tbody>'+s.porSabor.map(x=>'<tr><td>'+esc(x.k)+'</td><td>'+x.v+'</td><td>'+Math.round(x.v/s.total*100)+'%</td></tr>').join('')+'</tbody></table></section>'}
+
+/* ===== Alérgenos, lote propio y fichas técnicas ===== */
+const ALERG=['Gluten','Crustáceos','Huevo','Pescado','Cacahuetes','Soja','Leche','Frutos de cáscara','Apio','Mostaza','Sésamo','Sulfitos','Altramuces','Moluscos'];
+function loteJuliano(f){const p=f.split('-').map(Number),dia=Math.round((Date.UTC(p[0],p[1]-1,p[2])-Date.UTC(p[0],0,1))/864e5)+1;return String(p[0]).slice(-1)+String(dia).padStart(3,'0')}
+function vidaDe(s){const v=s&&s.vida!=null?+s.vida:3;return isFinite(v)?v:3}
+function htmlAlergenos(sab,completo){
+  const cols=completo?ALERG:ALERG.filter(a=>sab.some(s=>(s.alergenos||[]).includes(a)));
+  return '<table class="al-t"><thead><tr><th>Tarta</th>'+cols.map(a=>'<th>'+esc(a)+'</th>').join('')+'</tr></thead><tbody>'+
+   sab.map(s=>'<tr><td>'+esc(s.nombre)+'</td>'+cols.map(a=>(s.alergenos||[]).includes(a)?'<td class="al-si">Sí</td>':'<td>–</td>').join('')+'</tr>').join('')+'</tbody></table>'}
+function tablaAlergenos(){
+  const sab=M.cfg.sabores,sin=sab.filter(s=>!(s.alergenos||[]).length),usados=ALERG.filter(a=>sab.some(s=>(s.alergenos||[]).includes(a)));
+  sheet('<h2>Tabla de alérgenos</h2>'+(sab.length?'<div class="tbl">'+htmlAlergenos(sab,false)+'</div>'+
+   '<div class="small muted" style="margin-top:8px">Ninguna lleva: '+esc(ALERG.filter(a=>!usados.includes(a)).join(', ').toLowerCase())+'.</div>'+
+   (sin.length?'<div class="live warn">Sin alérgenos indicados: '+esc(sin.map(s=>s.nombre).join(', '))+'. Márcalos en Tartas › Ingredientes.</div>':'')+
+   '<button class="btn pri big" id="al-env">Enviar tabla a un cliente</button><div class="hint">Se envía solo la tabla de alérgenos, sin tus registros ni recetas.</div>'
+   :'<div class="empty">Aún no tienes sabores.</div>'));
+  if($('#al-env'))$('#al-env').onclick=()=>{const c=M.cfg;
+    const html='<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">'+
+     '<title>Alérgenos · '+esc(c.negocio||'Puro Umami')+'</title><style>body{margin:0;background:#FFFFEE;color:#43302E;font:15px/1.4 "Avenir Next",Avenir,Arial,sans-serif}.d{max-width:1000px;margin:0 auto;padding:24px 16px}'+
+     'h1{font:700 26px Georgia,serif;margin:0 0 4px}.w{overflow-x:auto}table{border-collapse:collapse;background:#fff;font-size:13px}th,td{border:1px solid #E2D9BC;padding:6px 8px;text-align:center}th{background:#FCF2C7}td:first-child,th:first-child{text-align:left;font-weight:700}.al-si{color:#84592B;font-weight:800}p{color:#6b5a50}</style></head><body><div class="d">'+
+     '<h1>Información de alérgenos</h1><p>'+esc(c.negocio||'Puro Umami Cheesecake')+' · Actualizada el '+fdate(today())+'</p><div class="w">'+htmlAlergenos(c.sabores,true)+'</div>'+
+     '<p>Según el Reglamento (UE) 1169/2011. Si tienes una alergia, consúltanos antes de comprar.</p></div></body></html>';
+    shareFile('alergenos-'+norm(c.negocio||'puro umami').replace(/[^a-z0-9]+/g,'-')+'.html',html,'text/html')}}
+/* Importar fichas técnicas (archivo que te prepara Claude a partir de tus fichas) */
+const normS=x=>norm(x).split(' ').map(w=>w.replace(/s$/,'')).join(' ');
+function mismoSabor(a,b){const x=norm(a).replace(/^tarta de queso /,''),y=norm(b).replace(/^tarta de queso /,'');return x===y}
+$('#fi-in').addEventListener('change',function(){const f=this.files&&this.files[0];this.value='';if(!f)return;
+  const r=new FileReader();r.onload=()=>{let o;try{o=JSON.parse(r.result)}catch(e){toast('Ese archivo no es de fichas técnicas');return}
+    if(!o||o.app!=='puro-umami-fichas'||!Array.isArray(o.sabores)){toast('Ese archivo no es de fichas técnicas');return}
+    const F=o.sabores.filter(s=>s&&s.nombre).map(s=>({nombre:String(s.nombre).slice(0,80),ingredientes:(Array.isArray(s.ingredientes)?s.ingredientes:[]).map(String).slice(0,40),
+      alergenos:(Array.isArray(s.alergenos)?s.alergenos:[]).map(String).filter(a=>ALERG.includes(a)),vida:isFinite(+s.vida)?Math.round(+s.vida):3,conservacion:String(s.conservacion||'0–4 °C'),descripcion:String(s.descripcion||'')}));
+    const c=M.cfg,otros=c.sabores.filter(s=>!F.some(x=>mismoSabor(x.nombre,s.nombre)));
+    sheet('<h2>Importar fichas técnicas</h2><div class="small muted">Se cargarán estos '+F.length+' sabores con sus ingredientes y alérgenos. Tus lotes, tartas y registros no se tocan.</div>'+
+      F.map(s=>'<div class="card" style="margin-top:10px"><b>'+esc(s.nombre)+'</b>'+(c.sabores.some(x=>mismoSabor(x.nombre,s.nombre))?' <span class="pill">se actualiza</span>':' <span class="pill ok">nuevo</span>')+
+        '<div class="small"><b>Alérgenos:</b> '+esc(s.alergenos.join(', ')||'ninguno')+'</div><div class="small muted">'+esc(s.ingredientes.join(', '))+'</div><div class="small muted">Consumo preferente: '+s.vida+' días · '+esc(s.conservacion)+'</div></div>').join('')+
+      (otros.length?'<h3>Sabores que tienes y no están en las fichas</h3><div class="small muted">Marca los que quieras quitar (las tartas ya guardadas no se borran).</div>'+
+        otros.map(s=>'<label class="check"><input type="checkbox" class="fi-q" value="'+esc(s.id)+'"'+(['s1','s2'].includes(s.id)?' checked':'')+'><span>Quitar «'+esc(s.nombre)+'»</span></label>').join(''):'')+
+      '<button class="btn pri big" id="fi-ok">Cargar fichas</button>');
+    $('#fi-ok').onclick=()=>{const w=JSON.parse(JSON.stringify(c)),quitar=$$('.fi-q:checked').map(x=>x.value);
+      const ingNombre=n=>{const e=w.ingredientes.find(x=>normS(x)===normS(n));if(e)return e;w.ingredientes.push(n);return n};
+      F.forEach(s=>{const ings=s.ingredientes.map(ingNombre),ex=w.sabores.find(x=>mismoSabor(x.nombre,s.nombre)),
+        datos={nombre:s.nombre,ings:ings,alergenos:s.alergenos,vida:s.vida,conservacion:s.conservacion,descripcion:s.descripcion};
+        if(ex)Object.assign(ex,datos);else w.sabores.push(Object.assign({id:'s'+uid(),horno:'',min:''},datos))});
+      w.sabores=w.sabores.filter(s=>!quitar.includes(s.id));
+      saveCfg(w).then(()=>{closeSheet();toast('Fichas cargadas: '+F.length+' sabores')}).catch(()=>{})}};
+  r.readAsText(f)});
 
 function autoLote(){}function autoDoc(){}
 
