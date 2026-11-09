@@ -280,7 +280,7 @@ function failSave(e){console.error(e);toast('No se pudo guardar en el móvil');t
 function marcaCambio(){try{localStorage.setItem('os_cambio',String(Date.now()))}catch(e){}}
 function saveRec(kind,o){marcaCambio();M[kind][o.id]=o;return tx('kv',s=>s.put(o,kind+':'+o.id)).catch(failSave)}
 function delRec(kind,id){marcaCambio();delete M[kind][id];return tx('kv',s=>s.delete(kind+':'+id)).catch(failSave)}
-function saveCfg(c){marcaCambio();M.cfg=c;return tx('kv',s=>s.put(c,'cfg')).catch(failSave)}
+function saveCfg(c){marcaCambio();c.ts=Date.now();M.cfg=c;return tx('kv',s=>s.put(c,'cfg')).catch(failSave)}
 function saveFoto(id,d){fotoMem[id]=d;return tx('fotos',s=>s.put(d,id)).catch(failSave)}
 function delFoto(id){delete fotoMem[id];return tx('fotos',s=>s.delete(id)).catch(()=>{})}
 function defCfg(){return {negocio:'Puro Umami Cheesecake',ingredientes:['Queso crema','Nata','Huevos','Azúcar','Galletas','Mantequilla'],
@@ -306,7 +306,7 @@ function compress(file){return new Promise((res,rej)=>{const u=URL.createObjectU
 function fillThumbs(root){$$('img[data-foto]',root).forEach(img=>getFoto(img.dataset.foto).then(d=>{if(d)img.src=d;else img.remove()}))}
 function shareFile(name,text,type){
   const blob=new Blob([text],{type:type});
-  try{const f=new File([blob],name,{type:type});if(navigator.canShare&&navigator.canShare({files:[f]}))return navigator.share({files:[f],title:name}).then(()=>true,e=>{if(e&&e.name!=='AbortError')throw e;return false})}catch(e){}
+  try{const f=new File([blob],name,{type:type});if(navigator.maxTouchPoints>0&&navigator.canShare&&navigator.canShare({files:[f]}))return navigator.share({files:[f],title:name}).then(()=>true,e=>{if(e&&e.name!=='AbortError')throw e;return false})}catch(e){}
   const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(u);a.remove()},4000);return Promise.resolve(true)}
 
@@ -515,6 +515,14 @@ function limpiarCopia(o){const N=v=>{const n=Number(v);return isFinite(n)?n:0},N
   Object.values(o.t).forEach(t=>{t.uds=N(t.uds);t.horno=Nn(t.horno);t.min=Nn(t.min);if(!Array.isArray(t.ings))t.ings=[]});
   Object.keys(o.fotos).forEach(k=>{const v=o.fotos[k];if(typeof v!=='string'||!/^data:image\/(jpeg|png|webp);base64,/.test(v))delete o.fotos[k]});
   return o}
+function combinar(o){o=limpiarCopia(o);const kinds=['e','t','c','l','d'],cambios=[];
+  kinds.forEach(k=>Object.keys(o[k]).forEach(id=>{const a=M[k][id],b=o[k][id];
+    const mejor=!a||((b.ts||0)>(a.ts||0))||(k==='c'&&(b.hora||'')>(a.hora||''));if(mejor&&JSON.stringify(a)!==JSON.stringify(b))cambios.push([k,id,b])}));
+  const cfgNueva=o.cfg&&(o.cfg.ts||0)>((M.cfg&&M.cfg.ts)||0);
+  return readAll('fotos').then(f=>{const nf=Object.keys(o.fotos).filter(k=>!(k in f)&&!(k in fotoMem));
+    return tx('kv',s=>{cambios.forEach(([k,id,b])=>s.put(b,k+':'+id));if(cfgNueva)s.put(o.cfg,'cfg')})
+      .then(()=>tx('fotos',s=>nf.forEach(k=>s.put(o.fotos[k],k))))
+      .then(()=>{cambios.forEach(([k,id,b])=>{M[k][id]=b});if(cfgNueva)M.cfg=o.cfg;if(!idb)nf.forEach(k=>{fotoMem[k]=o.fotos[k]});marcaCambio();render();return cambios.length+(cfgNueva?1:0)})})}
 function restaurar(o){o=limpiarCopia(o);
   const kinds=['e','t','c','l','d'];
   return tx('kv',s=>{s.clear();s.put(o.cfg,'cfg');kinds.forEach(k=>Object.keys(o[k]||{}).forEach(id=>s.put(o[k][id],k+':'+id)))})
@@ -523,9 +531,14 @@ function restaurar(o){o=limpiarCopia(o);
 $('#bk-in').addEventListener('change',function(){const f=this.files&&this.files[0];this.value='';if(!f)return;
   const r=new FileReader();r.onload=()=>{let o;try{o=JSON.parse(r.result)}catch(e){toast('Ese archivo no es una copia de la app');return}
     if(!o||o.app!=='obrador-sencillo'||!o.cfg){toast('Ese archivo no es una copia de la app');return}
-    sheet('<h2>Restaurar copia</h2><div class="card" style="border-color:var(--bad)"><b>Se cambiarán todos los datos de este móvil por los de la copia</b><div class="small">La copia es del '+fdate(String(o.exportedAt||'').slice(0,10))+'. Lo que hayas apuntado después se perderá.</div></div>'+
-      '<button class="btn pri big" id="rs-ok">Restaurar</button>');
-    $('#rs-ok').onclick=()=>restaurar(o).then(()=>{closeSheet();toast('Copia restaurada')},()=>toast('No se pudo restaurar'))};
+    const fe=String(o.exportedAt||'').slice(0,10),hm=String(o.exportedAt?new Date(o.exportedAt).toTimeString().slice(0,5):'');
+    sheet('<h2>Cargar copia</h2><div class="small muted">Copia del '+fdate(fe)+(hm?' a las '+hm:'')+'.</div>'+
+      '<div class="card" style="margin-top:12px"><b>Combinar con lo que tengo</b><div class="small">Junta lo de la copia con lo de este aparato. No se pierde nada de ninguno de los dos. Úsalo para pasar datos entre el iPhone y el Mac.</div>'+
+      '<button class="btn pri big" id="rs-mix" style="margin-top:12px">Combinar</button></div>'+
+      '<div class="card" style="border-color:var(--bad)"><b>Sustituir todo</b><div class="small">Borra lo de este aparato y deja solo lo de la copia. Úsalo solo en un móvil nuevo o si lo pierdes todo.</div>'+
+      '<button class="btn danger full" id="rs-ok" style="margin-top:12px">Sustituir todo</button></div>');
+    $('#rs-mix').onclick=()=>combinar(o).then(n=>{closeSheet();toast(n?'Combinado: '+n+' registros nuevos o actualizados':'Ya tenías todo, no había nada nuevo')},()=>toast('No se pudo combinar'));
+    confirmBtn($('#rs-ok'),'Pulsa otra vez para sustituir todo',()=>restaurar(o).then(()=>{closeSheet();toast('Copia restaurada')},()=>toast('No se pudo restaurar')))};
   r.readAsText(f)});
 
 /* ===== Ajustes ===== */
@@ -556,7 +569,7 @@ function ajustes(){
      '<button type="button" class="btn full" id="aj-ics" style="margin-top:10px">Añadir aviso diario al calendario</button>'+
      ('Notification' in window?'<button type="button" class="btn full" id="aj-badge" style="margin-top:10px">Mostrar el número de avisos en el icono</button>':'')+
      '<h3>Copia de seguridad</h3><div class="small muted">Tus datos están solo en este móvil. '+(ultimaCopia()?'Última copia: '+fdate(ultimaCopia())+'.':'Aún no has hecho ninguna copia.')+'</div>'+
-     '<div class="two" style="margin-top:10px"><button class="btn" id="aj-cp">Hacer copia</button><button class="btn" id="aj-rs">Restaurar copia</button></div>'+'<h3>Copias automáticas en el móvil</h3><div class="small muted">Cada día, al abrir la app, se guarda sola una copia dentro del móvil (se guardan los últimos 14 días). Sirve si borras o cambias algo sin querer.</div><div id="snaps" style="margin-top:8px"></div>'));
+     '<div class="two" style="margin-top:10px"><button class="btn" id="aj-cp">Hacer copia</button><button class="btn" id="aj-rs">Cargar copia</button></div>'+'<h3>Copias automáticas en el móvil</h3><div class="small muted">Cada día, al abrir la app, se guarda sola una copia dentro del móvil (se guardan los últimos 14 días). Sirve si borras o cambias algo sin querer.</div><div id="snaps" style="margin-top:8px"></div>'));
     $('#aj-fi').onclick=()=>$('#fi-in').click();
     $('#aj-i').onchange=()=>{leer();pintar()};
     $('#aj-add').onclick=()=>{leer();w.sabores.push({id:'s'+uid(),nombre:'',ings:w.ingredientes.slice(0,4),horno:'',min:''});pintar();const l=$$('.aj-sn');l[l.length-1].value='';l[l.length-1].focus()};
