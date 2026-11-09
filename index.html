@@ -229,7 +229,9 @@ details.aj>summary>span:not(.aj-x){flex:1;min-width:0}
 .aj-row>div{min-width:0}
 .aj-i{width:24px;height:24px;flex:none;stroke:var(--caramelo);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 details.aj>summary{justify-content:flex-start}
-#view,.sheet{overflow-wrap:anywhere}
+#view,.sheet{overflow-wrap:break-word}
+.btn,.pill{overflow-wrap:normal}
+.tile .tn{-webkit-hyphens:auto;hyphens:auto}
 #lock{position:fixed;inset:0;z-index:2147483000;background:var(--crema);display:flex;align-items:center;justify-content:center;padding:24px 16px}
 #lock .lk{width:100%;max-width:360px;text-align:center}#lock .lk img{width:220px;height:auto;margin-bottom:10px}#lock h2{font:700 26px var(--f-display);margin:8px 0 14px}
 #lock input{text-align:center;font-size:28px;letter-spacing:.3em}
@@ -578,7 +580,7 @@ function ajustes(){
     w.sabores=M.cfg.sabores;w.proveedores=M.cfg.proveedores||[];w.horaAviso=M.cfg.horaAviso;w.avisoCal=M.cfg.avisoCal}
   const IC={"seg":"<rect x=\"5\" y=\"11\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 11V8a4 4 0 018 0v3\"/>","prov":"<path d=\"M2 6h11v10H2zM13 9h4l4 4v3h-8\"/><circle cx=\"6\" cy=\"17.5\" r=\"1.8\"/><circle cx=\"17\" cy=\"17.5\" r=\"1.8\"/>","neg": "<path d=\"M4 10l1.5-5h13L20 10M4 10v9h16v-9M4 10h16M9 19v-5h6v5\"/>", "tar": "<path d=\"M3 18h18M4 18v-5l16-6v11\"/><path d=\"M4 13l16-6\"/>", "ing": "<path d=\"M3 8l9-5 9 5v8l-9 5-9-5z\"/><path d=\"M3 8l9 5 9-5M12 13v8\"/>", "cam": "<path d=\"M10 4a2 2 0 014 0v9.2a4 4 0 11-4 0z\"/><path d=\"M12 9v6\"/>", "con": "<path d=\"M4 9a12 12 0 0116 0M7 12.5a7 7 0 0110 0M10 16a2.5 2.5 0 014 0\"/><circle cx=\"12\" cy=\"19\" r=\"1\"/>", "av": "<path d=\"M6 16V11a6 6 0 0112 0v5l2 2H4z\"/><path d=\"M10 20a2 2 0 004 0\"/>", "cop": "<path d=\"M7 18a4 4 0 01-.5-8A6 6 0 0118 9a4.5 4.5 0 01-1 9z\"/><path d=\"M12 11v6M9.5 14.5L12 17l2.5-2.5\"/>", "dat": "<path d=\"M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z\"/>"};
   const sec=(id,titulo,extra,cuerpo,ic)=>'<details class="aj" id="'+id+'"><summary>'+(ic?'<svg class="aj-i" viewBox="0 0 24 24" aria-hidden="true">'+IC[ic]+'</svg>':'')+'<span>'+titulo+'</span>'+(extra?'<span class="aj-x">'+extra+'</span>':'')+'</summary><div class="aj-b">'+cuerpo+'</div></details>';
-  const est=()=>typeof SY!=='undefined'&&SY?(SY.err?'Revisar':'Activada'):'No conectada';
+  const est=()=>typeof SY!=='undefined'&&SY?(SY.rol==='invitado'?'Invitado':SY.estado==='pendiente'?'Esperando aprobación':SY.err?'Revisar':'Activada'):'No conectada';
   sheet('<h2>Ajustes</h2>'+
    sec('aj-neg','Mi negocio',esc(w.negocio||''),
      '<label for="aj-n" style="margin-top:0">Nombre del obrador</label><input id="aj-n" value="'+esc(w.negocio)+'" placeholder="Mi Obrador">'+
@@ -1492,6 +1494,7 @@ function revisarEnlace(){const inv=leerInvitacion(location.hash);if(!inv)return;
 window.addEventListener('hashchange',revisarEnlace);
 /* ---- pantalla en Ajustes › Conectividad ---- */
 function pintarSync(){const box=document.getElementById('sync-box');if(!box)return;
+  const ex=document.querySelector('#aj-syn .aj-x');if(ex)ex.textContent=SY?(ES_INV()?'Invitado':SY.estado==='pendiente'?'Esperando aprobación':SY.err?'Revisar':'Activada'):'No conectada';
   const ae=document.activeElement;if(ae&&box.contains(ae)&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)){const st=$('#sy-st');if(st)st.textContent=textoEstado();return}
   if(SY&&ES_INV()){box.innerHTML='<div class="card"><b>Eres invitado</b><div class="small muted">Obrador '+esc(SY.negocio||'')+(SY.nombre?' · '+esc(SY.nombre):'')+'</div><div class="live '+(SY.err?'warn':'okc')+'">'+esc(textoEstado())+'</div>'+
       '<div class="two" style="margin-top:10px"><button type="button" class="btn" id="sy-now">Sincronizar ahora</button><button type="button" class="btn danger" id="sy-off">Salir</button></div></div>';
