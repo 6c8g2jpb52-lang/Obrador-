@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Obrador Puro Umami</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -278,11 +278,11 @@ function getFoto(id){if(fotoMem[id]||!idb)return Promise.resolve(fotoMem[id]||nu
   return new Promise(res=>{const rq=idb.transaction('fotos').objectStore('fotos').get(id);rq.onsuccess=()=>{if(rq.result)fotoMem[id]=rq.result;res(rq.result||null)};rq.onerror=()=>res(null)})}
 function failSave(e){console.error(e);toast('No se pudo guardar en el móvil');throw e}
 function marcaCambio(){try{localStorage.setItem('os_cambio',String(Date.now()))}catch(e){}}
-function saveRec(kind,o){marcaCambio();M[kind][o.id]=o;return tx('kv',s=>s.put(o,kind+':'+o.id)).catch(failSave)}
-function delRec(kind,id){marcaCambio();delete M[kind][id];return tx('kv',s=>s.delete(kind+':'+id)).catch(failSave)}
-function saveCfg(c){marcaCambio();c.ts=Date.now();M.cfg=c;return tx('kv',s=>s.put(c,'cfg')).catch(failSave)}
-function saveFoto(id,d){fotoMem[id]=d;return tx('fotos',s=>s.put(d,id)).catch(failSave)}
-function delFoto(id){delete fotoMem[id];return tx('fotos',s=>s.delete(id)).catch(()=>{})}
+function saveRec(kind,o){marcaCambio();M[kind][o.id]=o;return tx('kv',s=>s.put(o,kind+':'+o.id)).then(()=>{typeof syncMarca==='function'&&syncMarca(kind+':'+o.id,'r')}).catch(failSave)}
+function delRec(kind,id){marcaCambio();delete M[kind][id];return tx('kv',s=>s.delete(kind+':'+id)).then(()=>{typeof syncMarca==='function'&&syncMarca(kind+':'+id,'r',true)}).catch(failSave)}
+function saveCfg(c){marcaCambio();c.ts=Date.now();M.cfg=c;return tx('kv',s=>s.put(c,'cfg')).then(()=>{typeof syncMarca==='function'&&syncMarca('cfg','r')}).catch(failSave)}
+function saveFoto(id,d){fotoMem[id]=d;return tx('fotos',s=>s.put(d,id)).then(()=>{typeof syncMarca==='function'&&syncMarca(id,'f')}).catch(failSave)}
+function delFoto(id){delete fotoMem[id];return tx('fotos',s=>s.delete(id)).then(()=>{typeof syncMarca==='function'&&syncMarca(id,'f',true)}).catch(()=>{})}
 function defCfg(){return {negocio:'Puro Umami Cheesecake',ingredientes:['Queso crema','Nata','Huevos','Azúcar','Galletas','Mantequilla'],
   sabores:[{id:'s1',nombre:'Tarta de queso',ings:['Queso crema','Nata','Huevos','Azúcar'],horno:'',min:''},
            {id:'s2',nombre:'Tarta de queso con galleta',ings:['Queso crema','Nata','Huevos','Azúcar','Galletas','Mantequilla'],horno:'',min:''}],
@@ -522,12 +522,12 @@ function combinar(o){o=limpiarCopia(o);const kinds=['e','t','c','l','d'],cambios
   return readAll('fotos').then(f=>{const nf=Object.keys(o.fotos).filter(k=>!(k in f)&&!(k in fotoMem));
     return tx('kv',s=>{cambios.forEach(([k,id,b])=>s.put(b,k+':'+id));if(cfgNueva)s.put(o.cfg,'cfg')})
       .then(()=>tx('fotos',s=>nf.forEach(k=>s.put(o.fotos[k],k))))
-      .then(()=>{cambios.forEach(([k,id,b])=>{M[k][id]=b});if(cfgNueva)M.cfg=o.cfg;if(!idb)nf.forEach(k=>{fotoMem[k]=o.fotos[k]});marcaCambio();render();return cambios.length+(cfgNueva?1:0)})})}
+      .then(()=>{cambios.forEach(([k,id,b])=>{M[k][id]=b});if(cfgNueva)M.cfg=o.cfg;if(!idb)nf.forEach(k=>{fotoMem[k]=o.fotos[k]});marcaCambio();if(typeof syncMarca==='function'){cambios.forEach(x=>syncMarca(x[0]+':'+x[1],'r'));if(cfgNueva)syncMarca('cfg','r');nf.forEach(k=>syncMarca(k,'f'))}render();return cambios.length+(cfgNueva?1:0)})})}
 function restaurar(o){o=limpiarCopia(o);
   const kinds=['e','t','c','l','d'];
   return tx('kv',s=>{s.clear();s.put(o.cfg,'cfg');kinds.forEach(k=>Object.keys(o[k]||{}).forEach(id=>s.put(o[k][id],k+':'+id)))})
    .then(()=>tx('fotos',s=>{s.clear();Object.keys(o.fotos||{}).forEach(id=>s.put(o.fotos[id],id))}))
-   .then(()=>{M.cfg=o.cfg;kinds.forEach(k=>{M[k]=Object.assign({},o[k]||{})});Object.keys(fotoMem).forEach(k=>delete fotoMem[k]);Object.assign(fotoMem,idb?{}:(o.fotos||{}))})}
+   .then(()=>{M.cfg=o.cfg;kinds.forEach(k=>{M[k]=Object.assign({},o[k]||{})});Object.keys(fotoMem).forEach(k=>delete fotoMem[k]);Object.assign(fotoMem,idb?{}:(o.fotos||{}))}).then(()=>{if(typeof syncTodo==='function')return syncTodo()})}
 $('#bk-in').addEventListener('change',function(){const f=this.files&&this.files[0];this.value='';if(!f)return;
   const r=new FileReader();r.onload=()=>{let o;try{o=JSON.parse(r.result)}catch(e){toast('Ese archivo no es una copia de la app');return}
     if(!o||o.app!=='obrador-sencillo'||!o.cfg){toast('Ese archivo no es una copia de la app');return}
@@ -563,7 +563,7 @@ function ajustes(){
      '<label for="aj-c">Cámaras (una por línea: nombre ; mínimo ; máximo)</label><textarea id="aj-c" rows="3">'+esc(w.camaras.map(c=>c.nombre+' ; '+c.min+' ; '+c.max).join('\n'))+'</textarea>'+
      '<label for="aj-l">Tareas de limpieza (una por línea)</label><textarea id="aj-l" rows="4">'+esc(w.limpieza.join('\n'))+'</textarea>'+
      '<button class="btn pri big" id="aj-save">Guardar ajustes</button>'+
-     (CLOUD?'<h3>Tus datos</h3><div class="small muted">Se guardan en tu cuenta de Claude, en una página privada que solo abres tú. Puedes abrirla desde el móvil o el ordenador. Cada mañana te llega al móvil un aviso con lo que tengas pendiente.</div>':
+     (CLOUD?'':'<h3>Sincronizar iPhone y Mac</h3><div id="sync-box"></div>')+(CLOUD?'<h3>Tus datos</h3><div class="small muted">Se guardan en tu cuenta de Claude, en una página privada que solo abres tú. Puedes abrirla desde el móvil o el ordenador. Cada mañana te llega al móvil un aviso con lo que tengas pendiente.</div>':
      '<h3>Avisos en el iPhone</h3><div class="small muted">La app te muestra los avisos al abrirla. Para que el iPhone te avise cada día aunque no la abras, añade el aviso a tu calendario.</div>'+
      '<label for="aj-h">Hora del aviso diario</label><input id="aj-h" type="time" value="'+esc(w.horaAviso||'16:00')+'">'+
      '<button type="button" class="btn full" id="aj-ics" style="margin-top:10px">Añadir aviso diario al calendario</button>'+
@@ -579,7 +579,7 @@ function ajustes(){
     if($('#aj-ics'))$('#aj-ics').onclick=()=>{const h=$('#aj-h').value||'16:00';w.horaAviso=h;w.avisoCal=true;M.cfg.horaAviso=h;M.cfg.avisoCal=true;saveCfg(M.cfg).catch(()=>{});bajarIcs('aviso-diario-obrador.ics',[icsDiario(h)])};
     if($('#aj-badge'))$('#aj-badge').onclick=()=>{try{Notification.requestPermission().then(p=>{if(p==='granted'){updateBadges();toast('Verás el número de avisos en el icono')}else toast('No se ha dado permiso')})}catch(e){toast('Este iPhone no lo permite')}};
     if($('#aj-cp')){$('#aj-cp').onclick=hacerCopia;$('#aj-rs').onclick=()=>$('#bk-in').click()}
-    if(!CLOUD)fillSnaps()}
+    if(!CLOUD){fillSnaps();if(typeof pintarSync==='function')pintarSync()}}
   pintar()}
 
 /* ===== Navegación ===== */
@@ -616,7 +616,7 @@ document.addEventListener('click',e=>{
   else if(d.act==='sabor-nuevo')formSabor();
   else if(d.act==='sabor-editar')formSabor(d.id)});
 $('#gear').onclick=ajustes;$('#bell').onclick=verAvisos;
-load().then(()=>{render();if(!CLOUD)autoSnap()});
+load().then(()=>{render();if(!CLOUD){autoSnap();if(typeof sincronizar==='function')sincronizar()}});
 if(!CLOUD&&'serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 
 /* ===== Fotos ===== */
@@ -672,6 +672,7 @@ function avisos(){
   const A=[],t=today(),c=M.cfg;if(!c)return A;
   if(!persistOk)A.push({k:'bad',t:'Los datos no se están guardando',s:CLOUD?'Abre la app con tu cuenta de Claude y con conexión.':'Abre la app desde su icono de la pantalla de inicio.'});
   if(!CLOUD&&!c.avisoCal)A.push({k:'warn',t:'Activa el aviso diario de las '+(c.horaAviso||'16:00'),s:'Así el iPhone te avisa cada día aunque no abras la app',cal:1,b:'Activar'});
+  if(typeof syncAviso==='function'){const sa=syncAviso();if(sa)A.push(sa)}
   const faltan=c.camaras.filter(x=>!M.c[t+'_'+x.id]);
   if(faltan.length)A.push({k:'warn',t:'Falta la temperatura de hoy',s:faltan.map(x=>x.nombre).join(', '),tab:'camara',b:'Anotar'});
   const mal=c.camaras.map(x=>M.c[t+'_'+x.id]).filter(r=>r&&!r.ok);
@@ -688,9 +689,9 @@ function avisos(){
   return A.sort((a,b)=>a.k===b.k?0:(a.k==='bad'?-1:1))}
 function verAvisos(){const A=avisos();
   sheet('<h2>Avisos</h2>'+(A.length?A.map(a=>'<div class="card aviso '+a.k+'"><div class="th"><b>'+esc(a.t)+'</b></div><div class="row"><span class="small muted">'+esc(a.s)+'</span>'+
-    (a.b?'<button class="btn sm" data-act="av-go"'+(a.tab?' data-tab="'+a.tab+'"':'')+(a.doc?' data-doc="'+esc(a.doc)+'"':'')+(a.ent?' data-ent="'+esc(a.ent)+'"':'')+(a.copia?' data-copia="1"':'')+(a.cal?' data-cal="1"':'')+'>'+esc(a.b)+'</button>':'')+'</div></div>').join('')
+    (a.b?'<button class="btn sm" data-act="av-go"'+(a.tab?' data-tab="'+a.tab+'"':'')+(a.doc?' data-doc="'+esc(a.doc)+'"':'')+(a.ent?' data-ent="'+esc(a.ent)+'"':'')+(a.copia?' data-copia="1"':'')+(a.cal?' data-cal="1"':'')+(a.aj?' data-aj="1"':'')+'>'+esc(a.b)+'</button>':'')+'</div></div>').join('')
     :'<div class="empty"><b>Todo al día</b>No tienes nada pendiente.</div>'))}
-function irAviso(d){if(d.cal){const h=M.cfg.horaAviso||'16:00';bajarIcs('aviso-diario-obrador.ics',[icsDiario(h)]);M.cfg.horaAviso=h;M.cfg.avisoCal=true;saveCfg(M.cfg).then(()=>verAvisos()).catch(()=>{});return}
+function irAviso(d){if(d.aj){ajustes();return}if(d.cal){const h=M.cfg.horaAviso||'16:00';bajarIcs('aviso-diario-obrador.ics',[icsDiario(h)]);M.cfg.horaAviso=h;M.cfg.avisoCal=true;saveCfg(M.cfg).then(()=>verAvisos()).catch(()=>{});return}
   if(d.copia){hacerCopia();return}if(d.doc){verDoc(d.doc);return}if(d.ent){verEntrada(d.ent);return}
   if(d.tab){closeSheet();tab=d.tab;window.scrollTo(0,0);render()}}
 function updateBadges(){const n=avisos().length,b=$('#bell-n');if(b){b.textContent=n;b.hidden=!n}
@@ -770,7 +771,7 @@ function volverSnap(k){if(!snapOk())return;
     const o=limpiarCopia(Object.assign({app:'obrador-sencillo',fotos:{}},JSON.parse(JSON.stringify(v))));
     const kinds=['e','t','c','l','d'];
     tx('kv',s=>{s.clear();s.put(o.cfg,'cfg');kinds.forEach(x=>Object.keys(o[x]).forEach(id=>s.put(o[x][id],x+':'+id)))})
-     .then(()=>{M.cfg=o.cfg;kinds.forEach(x=>{M[x]=Object.assign({},o[x])});marcaCambio();closeSheet();toast('Datos recuperados de '+diaLabel(k).toLowerCase())})
+     .then(()=>{M.cfg=o.cfg;kinds.forEach(x=>{M[x]=Object.assign({},o[x])});marcaCambio();if(typeof syncTodo==='function')syncTodo(true);closeSheet();toast('Datos recuperados de '+diaLabel(k).toLowerCase())})
      .catch(()=>toast('No se pudo recuperar'))};
   rq.onerror=()=>toast('No se pudo recuperar')}
 
@@ -941,6 +942,111 @@ $('#fi-in').addEventListener('change',function(){const f=this.files&&this.files[
       w.sabores=w.sabores.filter(s=>!quitar.includes(s.id));
       saveCfg(w).then(()=>{closeSheet();toast('Fichas cargadas: '+F.length+' sabores')}).catch(()=>{})}};
   r.readAsText(f)});
+
+/* ===== Sincronización automática con tu propia base de datos (Supabase) =====
+   Solo tu usuario puede leer y escribir tus datos (reglas de seguridad en la base de datos). */
+const SYK='os_sync',OUTK='os_out';
+let SY=null;try{SY=JSON.parse(localStorage.getItem(SYK)||'null')}catch(e){}
+let syncing=false,pushT=null,syncRenderPend=false;
+function sySave(){try{SY?localStorage.setItem(SYK,JSON.stringify(SY)):localStorage.removeItem(SYK)}catch(e){}}
+function outLeer(){try{return JSON.parse(localStorage.getItem(OUTK)||'{}')}catch(e){return {}}}
+function outGuardar(o){try{localStorage.setItem(OUTK,JSON.stringify(o))}catch(e){}}
+function syncMarca(clave,tipo,borrado){if(!SY)return;const o=outLeer();o[tipo+'|'+clave]=[borrado?1:0,Date.now()+Math.random()];outGuardar(o);clearTimeout(pushT);pushT=setTimeout(()=>sincronizar(),1500)}
+function syncTodo(sinFotos){if(!SY)return Promise.resolve();const o=outLeer(),n=Date.now();o['r|cfg']=[0,n];
+  ['e','t','c','l','d'].forEach(k=>Object.keys(M[k]).forEach(id=>{o['r|'+k+':'+id]=[0,n+Math.random()]}));
+  return (sinFotos?Promise.resolve({}):readAll('fotos')).then(f=>{if(!sinFotos)Object.keys(f).concat(Object.keys(fotoMem)).forEach(k=>{o['f|'+k]=[0,n+Math.random()]});outGuardar(o);clearTimeout(pushT);pushT=setTimeout(()=>sincronizar(),500)})}
+function urlValida(u){return /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(u)||/^http:\/\/localhost:\d+$/.test(u)}
+function api(path,opt){opt=opt||{};const h=Object.assign({apikey:SY.key,'Content-Type':'application/json'},opt.headers||{});if(SY.access)h.Authorization='Bearer '+SY.access;
+  return fetch(SY.url+path,{method:opt.method||'GET',headers:h,body:opt.body?JSON.stringify(opt.body):undefined,cache:'no-store'}).then(r=>{
+    if(r.status===401&&!opt.retry)return refrescar().then(()=>api(path,Object.assign({},opt,{retry:true})));
+    if(!r.ok)return r.text().then(t=>{const e=new Error(t||String(r.status));e.status=r.status;throw e});
+    return r.status===204?null:r.text().then(t=>t?JSON.parse(t):null)})}
+function refrescar(){return fetch(SY.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:SY.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:SY.refresh})})
+  .then(r=>r.ok?r.json():Promise.reject(Object.assign(new Error('sesion'),{status:401})))
+  .then(j=>{SY.access=j.access_token;SY.refresh=j.refresh_token;sySave()})}
+function syncLogin(url,key,email,pass){url=url.trim().replace(/\/+$/,'');key=key.trim();
+  if(!urlValida(url))return Promise.reject(new Error('La dirección debe ser como https://xxxx.supabase.co'));
+  return fetch(url+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:key,'Content-Type':'application/json'},body:JSON.stringify({email:email.trim(),password:pass})})
+   .then(r=>r.json().catch(()=>({})).then(j=>{if(!r.ok)throw new Error(r.status===400?'Email o contraseña incorrectos':'No se pudo conectar ('+r.status+')');return j}))
+   .then(j=>{SY={url:url,key:key,email:email.trim(),access:j.access_token,refresh:j.refresh_token,lastR:'',lastF:'',ok:0,err:''};sySave()})}
+/* ---- limpiar lo que llega de internet antes de guardarlo ---- */
+const F8S=/^\d{4}-\d{2}-\d{2}$/;
+function sanear(k,d){if(!d||typeof d!=='object'||Array.isArray(d))return null;
+  if(k==='cfg'){try{return limpiarCopia({app:'obrador-sencillo',cfg:JSON.parse(JSON.stringify(d)),fotos:{}}).cfg}catch(e){return null}}
+  d=JSON.parse(JSON.stringify(d));if(!F8S.test(String(d.fecha)))return null;
+  ['cad','vence'].forEach(f=>{if(d[f]!=null&&d[f]!==''&&!F8S.test(String(d[f])))d[f]=''});
+  if(k==='c'){d.v=Number(d.v);if(!isFinite(d.v))return null;d.ok=!!d.ok}
+  if(k==='t'){d.uds=Number(d.uds)||0;if(!Array.isArray(d.ings))d.ings=[];if(Array.isArray(d.alergenos))d.alergenos=d.alergenos.map(String).filter(a=>ALERG.includes(a))}
+  if(k==='l')d.i=Number(d.i)||0;if(d.lote!=null)d.lote=String(d.lote);return d}
+/* ---- subir cambios ---- */
+function push(){const o=outLeer(),ks=Object.keys(o);if(!ks.length)return Promise.resolve();
+  const quitar=(k,v)=>{const oo=outLeer();if(oo[k]&&oo[k][1]===v[1])delete oo[k];outGuardar(oo)};
+  const R=ks.filter(k=>k[0]==='r').map(k=>{const c=k.slice(2);let d;if(c==='cfg')d=M.cfg;else{const i=c.indexOf(':');d=(M[c.slice(0,i)]||{})[c.slice(i+1)]}
+    const b=o[k][0]===1||d===undefined;return {k:k,v:o[k],fila:{clave:c,datos:b?null:d,borrado:b}}});
+  let p=Promise.resolve();
+  for(let i=0;i<R.length;i+=200){const lote=R.slice(i,i+200);
+    p=p.then(()=>api('/rest/v1/registros?on_conflict=user_id,clave',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:lote.map(x=>x.fila)}).then(()=>lote.forEach(x=>quitar(x.k,x.v))))}
+  ks.filter(k=>k[0]==='f').forEach(k=>{const c=k.slice(2),v=o[k];
+    p=p.then(()=>getFoto(c)).then(d=>{const b=v[0]===1||!d;
+      return api('/rest/v1/fotos?on_conflict=user_id,clave',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:[{clave:c,datos:b?null:d,borrado:b}]}).then(()=>quitar(k,v))})});
+  return p}
+/* ---- bajar cambios ---- */
+function aplicar(tabla,rows,vistos){const pend=outLeer(),ops=[];let n=0;
+  rows.forEach(r=>{if(vistos)vistos.add((tabla==='fotos'?'f|':'r|')+r.clave);
+    if(tabla==='fotos'){if(pend['f|'+r.clave])return;
+      if(r.borrado){if(fotoMem[r.clave]!==undefined||true){delete fotoMem[r.clave];ops.push(s=>s.delete(r.clave))}return}
+      if(typeof r.datos!=='string'||!/^data:image\/(jpeg|png|webp);base64,/.test(r.datos))return;
+      if(fotoMem[r.clave]!==r.datos){fotoMem[r.clave]=r.datos;ops.push(s=>s.put(r.datos,r.clave));n++}return}
+    if(pend['r|'+r.clave])return;
+    if(r.clave==='cfg'){if(r.borrado)return;const d=sanear('cfg',r.datos);if(d&&JSON.stringify(M.cfg)!==JSON.stringify(d)){M.cfg=d;ops.push(s=>s.put(d,'cfg'));n++}return}
+    const i=r.clave.indexOf(':'),k=r.clave.slice(0,i),id=r.clave.slice(i+1);if(!M[k]||k==='f')return;
+    if(r.borrado){if(M[k][id]){delete M[k][id];ops.push(s=>s.delete(r.clave));n++}return}
+    const d=sanear(k,r.datos);if(d&&JSON.stringify(M[k][id])!==JSON.stringify(d)){M[k][id]=d;ops.push(s=>s.put(d,r.clave));n++}});
+  return (ops.length?tx(tabla==='fotos'?'fotos':'kv',s=>ops.forEach(f=>f(s))):Promise.resolve()).then(()=>n)}
+function pull(tabla,campo,vistos){const desdeTs=SY[campo]?new Date(new Date(SY[campo]).getTime()-5000).toISOString():'1970-01-01T00:00:00Z';
+  let off=0,max=SY[campo]||'',total=0;
+  const pagina=()=>api('/rest/v1/'+tabla+'?select=clave,datos,borrado,actualizado&actualizado=gt.'+encodeURIComponent(desdeTs)+'&order=actualizado.asc,clave.asc&limit=200&offset='+off)
+    .then(rows=>{rows=rows||[];rows.forEach(r=>{if(r.actualizado>max)max=r.actualizado});
+      return aplicar(tabla,rows,vistos).then(n=>{total+=n;if(rows.length===200){off+=200;return pagina()}if(max){SY[campo]=max;sySave()}return total})});
+  return pagina()}
+function sincronizar(manual){if(!SY||syncing)return Promise.resolve();if(!navigator.onLine){pintarSync();return Promise.resolve()}
+  syncing=true;pintarSync();
+  return push().then(()=>pull('registros','lastR')).then(a=>pull('fotos','lastF').then(b=>a+b)).then(n=>{SY.ok=Date.now();SY.err='';sySave();
+      if(n)renderSeguro();if(manual)toast(n?'Sincronizado: '+n+' cambios':'Todo al día')})
+    .catch(e=>{console.error(e);if(SY){SY.err=e&&e.status===401?'sesion':'red';sySave()}if(manual)toast(SY&&SY.err==='sesion'?'Tienes que volver a conectar':'No se pudo sincronizar. Revisa la conexión')})
+    .then(()=>{syncing=false;pintarSync();updateBadges()})}
+function renderSeguro(){const a=document.activeElement;
+  if(a&&$('#view').contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)){if(!syncRenderPend){syncRenderPend=true;a.addEventListener('blur',()=>{syncRenderPend=false;render()},{once:true})}return}render()}
+function conectarPrimeraVez(){const vistos=new Set();
+  return pull('registros','lastR',vistos).then(()=>pull('fotos','lastF',vistos)).then(()=>{const o=outLeer(),n=Date.now();
+    if(!vistos.has('r|cfg'))o['r|cfg']=[0,n];
+    ['e','t','c','l','d'].forEach(k=>Object.keys(M[k]).forEach(id=>{if(!vistos.has('r|'+k+':'+id))o['r|'+k+':'+id]=[0,n+Math.random()]}));
+    return readAll('fotos').then(f=>{Object.keys(f).forEach(k=>{if(!vistos.has('f|'+k))o['f|'+k]=[0,n+Math.random()]});outGuardar(o)})})
+   .then(()=>{render();return sincronizar()})}
+setInterval(()=>{if(SY&&document.visibilityState==='visible')sincronizar()},20000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')sincronizar()});
+window.addEventListener('online',()=>sincronizar());
+/* ---- pantalla en Ajustes ---- */
+function textoEstado(){if(!SY)return '';if(syncing)return 'Sincronizando…';if(!navigator.onLine)return 'Sin internet. Se sincronizará al volver la conexión.';
+  const pend=Object.keys(outLeer()).length;if(SY.err==='sesion')return 'Tienes que volver a conectar.';if(SY.err==='red')return 'No se pudo sincronizar la última vez'+(pend?' · '+pend+' cambios pendientes':'')+'.';
+  if(!SY.ok)return 'Conectado.';const d=new Date(SY.ok);return 'Sincronizado a las '+pad(d.getHours())+':'+pad(d.getMinutes())+(pend?' · '+pend+' cambios pendientes':'');}
+function pintarSync(){const box=document.getElementById('sync-box');if(!box)return;
+  if(SY){box.innerHTML='<div class="card"><b>Sincronización automática activada</b><div class="small muted">'+esc(SY.email)+'</div><div class="live '+(SY.err?'warn':'okc')+'" id="sy-st">'+esc(textoEstado())+'</div>'+
+      '<div class="two" style="margin-top:10px"><button type="button" class="btn" id="sy-now">Sincronizar ahora</button><button type="button" class="btn danger" id="sy-off">Desconectar</button></div></div>';
+    $('#sy-now').onclick=()=>SY.err==='sesion'?(SY=null,sySave(),pintarSync()):sincronizar(true);
+    confirmBtn($('#sy-off'),'Pulsa otra vez',()=>{SY=null;sySave();outGuardar({});pintarSync();toast('Sincronización desconectada. Tus datos siguen en este aparato.')});return}
+  box.innerHTML='<div class="small muted">Conecta tu base de datos para que el iPhone y el Mac tengan siempre lo mismo, sin hacer nada.</div>'+
+    '<label for="sy-u">Dirección del proyecto (Project URL)</label><input id="sy-u" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://xxxx.supabase.co">'+
+    '<label for="sy-k">Clave pública (anon public o publishable)</label><textarea id="sy-k" rows="3" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="eyJhbGciOi..."></textarea>'+
+    '<label for="sy-e">Email de tu usuario</label><input id="sy-e" type="email" autocapitalize="none" autocorrect="off">'+
+    '<label for="sy-p">Contraseña de tu usuario</label><input id="sy-p" type="password">'+
+    '<button type="button" class="btn pri big" id="sy-go">Conectar y sincronizar</button><div class="hint">La contraseña no se guarda en la app. Solo tu usuario puede leer tus datos.</div>';
+  $('#sy-go').onclick=()=>{const b=$('#sy-go');b.disabled=true;b.textContent='Conectando…';
+    syncLogin($('#sy-u').value,$('#sy-k').value,$('#sy-e').value,$('#sy-p').value).then(conectarPrimeraVez)
+      .then(()=>{toast('Conectado. A partir de ahora se sincroniza solo.');pintarSync()})
+      .catch(e=>{toast(e.message||'No se pudo conectar');b.disabled=false;b.textContent='Conectar y sincronizar'})}}
+function syncAviso(){if(!SY)return null;if(SY.err==='sesion')return {k:'bad',t:'La sincronización está desconectada',s:'Vuelve a conectar en Ajustes',aj:1,b:'Ajustes'};
+  if(navigator.onLine&&SY.ok&&Date.now()-SY.ok>86400000)return {k:'warn',t:'Hace más de un día que no se sincroniza',s:'Abre la app con internet o revisa Ajustes',aj:1,b:'Ajustes'};return null}
 
 function autoLote(){}function autoDoc(){}
 
