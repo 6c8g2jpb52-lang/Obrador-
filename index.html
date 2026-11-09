@@ -473,9 +473,9 @@ function formEntrada(ing,edit,after){
    '<div class="hint" id="en-hint">'+(CLOUD?'Al hacer la foto, la app lee el lote, la caducidad y la marca. Revisa que estén bien.':'Escríbelo mirando la foto. También puedes tocar el campo y usar «Escanear texto» del iPhone.')+'</div>'+
    '<label for="en-prov">Proveedor</label>'+provSelect('en-prov',e.id?e.provId:(prev&&prev.provId))+
    '<label for="en-marca">Marca</label><input id="en-marca" list="dl-m" value="'+esc(e.marca!=null?e.marca:(prev&&prev.marca)||'')+'" placeholder="Ej. la marca del queso"><datalist id="dl-m">'+marcas.map(m=>'<option value="'+esc(m)+'">').join('')+'</datalist>'+
-   campoCantidad(e,ing)+
+   campoCantidad(edit?e:{cant:prev&&prev.cant,ud:prev&&prev.ud},ing)+
    '<div class="two"><div><label for="en-f">Día que entra</label><input id="en-f" type="date" value="'+(e.fecha||today())+'"></div>'+
-   '<div><label for="en-c">Caducidad <span style="font-weight:400">(opcional)</span></label><input id="en-c" type="date" value="'+(e.cad||'')+'"></div></div>'+
+   '<div><label for="en-c">Caducidad <span style="font-weight:400">(opcional)</span></label><input id="en-c" type="date" value="'+(e.cad||'')+'"></div></div>'+'<div class="hint" id="en-chint" hidden></div>'+
    (edit?'':'<button type="button" class="btn full" id="fac-btn" style="margin-top:16px">+ Foto de la factura o albarán</button><img id="fac-img" class="bigphoto" hidden alt="Factura">')+
    '<button class="btn pri big" id="en-save">Guardar</button>'+(edit?'<button class="btn danger full" id="en-del" style="margin-top:10px">Borrar esta entrada</button>':''));
   const show=d=>{$('#ph-img').src=d;$('#ph-img').hidden=false;$('#ph-txt').innerHTML='<span class="again">Toca para repetir la foto</span>';$('#ph-txt').style.padding='0';$('#ph-btn').classList.add('has');$('#ph-btn').appendChild($('#ph-txt'))};
@@ -483,6 +483,7 @@ function formEntrada(ing,edit,after){
   $('#ph-btn').onclick=()=>{const inp=$('#ph-in');inp.value='';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;
     compress(f).then(d=>{foto=d;show(d);if(CLOUD)autoLote(d);else if(!$('#en-lote').value)$('#en-lote').focus()}).catch(()=>toast('No se pudo usar esa foto'))};inp.click()};
   let factura=null;montarProvSelect('en-prov');
+  if(!edit)autoRellenoEntrada(ing,prev);
   if($('#fac-btn'))$('#fac-btn').onclick=()=>pickPhoto(d=>{factura=d;$('#fac-img').src=d;$('#fac-img').hidden=false;$('#fac-btn').textContent='Repetir foto de la factura'});
   $('#en-save').onclick=()=>{
     const lote=$('#en-lote').value.trim().toUpperCase();
@@ -493,6 +494,14 @@ function formEntrada(ing,edit,after){
      .then(()=>{if(!factura)return;const dc={id:uid(),tipo:'Factura',nombre:ing+(o.marca?' · '+o.marca:''),provId:o.provId,provNombre:o.provNombre,fecha:o.fecha,vence:'',eid:o.id,ts:Date.now()};
        return saveFoto('doc_'+dc.id,factura).then(()=>saveRec('d',dc))}).then(()=>{toast('Guardado: '+ing+(lote?' · lote '+lote:'')+(factura?' · factura apuntada':''));closeSheet();if(after)setTimeout(after,50)})}).catch(()=>{})};
   if(edit)confirmBtn($('#en-del'),'Pulsa otra vez para borrar',()=>{delRec('e',e.id).then(()=>{delFoto(e.id);closeSheet();toast('Entrada borrada')})})}
+/* Relleno automático de una entrada nueva con lo que ya sabe la app de ese ingrediente */
+function vidaIng(ing){const d=entradasDe(ing).filter(x=>x.cad&&x.fecha&&x.cad>x.fecha).slice(0,5).map(x=>daysBetween(x.fecha,x.cad)).filter(n=>n>0&&n<3650).sort((a,b)=>a-b);return d.length?d[Math.floor(d.length/2)]:null}
+function autoRellenoEntrada(ing,prev){const c=$('#en-c'),f=$('#en-f'),h=$('#en-chint'),dias=vidaIng(ing);let tocada=false;
+  if(dias&&c&&!c.value){const pon=()=>{if(tocada)return;c.value=sumarDias(f.value||today(),dias);h.hidden=false;h.textContent='Caducidad calculada con tus últimas entradas ('+dias+' días). Compruébala en la etiqueta.'};
+    pon();f.addEventListener('change',pon);c.addEventListener('input',()=>{tocada=true;h.hidden=true})}
+  if(prev){const q=[];if(prev.provId&&(M.cfg.proveedores||[]).some(x=>x.id===prev.provId))q.push('proveedor');if(prev.marca)q.push('marca');if(prev.cant>0)q.push('cantidad');if(dias)q.push('caducidad');
+    if(q.length){const b=document.createElement('div');b.className='live ok';b.style.cssText='margin:0 0 10px;padding:10px 12px;border-radius:12px';b.textContent='Rellenado con tu última entrada ('+fshort(prev.fecha)+'): '+q.join(', ')+'. Haz la foto y escribe el lote.';
+      const h2=document.querySelector('#sheet h2');if(h2)h2.after(b)}}}
 function verEntrada(id){const e=M.e[id];if(!e)return;
   const usos=tartasOrden().filter(t=>t.ings.some(i=>i.eid===e.id));
   sheet('<h2>'+esc(e.ing)+'</h2>'+(e.foto?'<img class="bigphoto" data-foto="'+esc(e.id)+'" alt="Foto del lote">':'')+
