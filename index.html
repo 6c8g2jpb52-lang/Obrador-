@@ -178,6 +178,7 @@ details.dia summary>span:first-child::first-letter{text-transform:uppercase}
 details.dia summary::-webkit-details-marker{display:none}
 details.dia[open]{padding-bottom:4px}
 details.dia .card{background:var(--crema)}
+.dsec{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:10px 2px 6px}
 select#dia{font-weight:600;text-transform:none}
 nav button{font-size:11px}
 .row-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:12px}
@@ -216,6 +217,22 @@ button.link{border:0;background:none;padding:0;min-height:0;color:var(--caramelo
 .vb-l{font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap}
 .al-t td,.al-t th{text-align:center}.al-t td:first-child,.al-t th:first-child{text-align:left;white-space:normal;min-width:120px}
 .al-si{color:var(--caramelo);font-weight:800}
+details.aj{border:1px solid var(--line);border-radius:14px;background:var(--surface);margin-bottom:8px}
+details.aj>summary{min-height:56px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 14px;cursor:pointer;font:700 17px var(--f-body);list-style:none}
+details.aj>summary::-webkit-details-marker{display:none}
+details.aj>summary::after{content:"";width:9px;height:9px;border-right:2px solid var(--caramelo);border-bottom:2px solid var(--caramelo);transform:rotate(45deg);margin:-4px 4px 0 0;flex:none;transition:transform .15s}
+details.aj[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
+details.aj>summary>span:not(.aj-x){flex:1;min-width:0}
+.aj-x{font:500 14px var(--f-body);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45%}
+.aj-b{padding:0 14px 14px}
+.aj-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.aj-row>div{min-width:0}
+.aj-i{width:24px;height:24px;flex:none;stroke:var(--caramelo);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+details.aj>summary{justify-content:flex-start}
+#view,.sheet{overflow-wrap:anywhere}
+#lock{position:fixed;inset:0;z-index:2147483000;background:var(--crema);display:flex;align-items:center;justify-content:center;padding:24px 16px}
+#lock .lk{width:100%;max-width:360px;text-align:center}#lock .lk img{width:220px;height:auto;margin-bottom:10px}#lock h2{font:700 26px var(--f-display);margin:8px 0 14px}
+#lock input{text-align:center;font-size:28px;letter-spacing:.3em}
 </style>
 </head>
 <body>
@@ -325,7 +342,7 @@ function vEntradas(){
   else h+='<div class="empty" style="margin-top:14px"><b>Empieza por aquí</b>Cuando te llegue el queso, la nata o los huevos, toca su botón, hazle una foto al lote y guarda.</div>';
   return h}
 function cardEntrada(e){return '<button class="card" data-act="ver-entrada" data-id="'+esc(e.id)+'"><div class="th"><b>'+esc(e.ing)+'</b><span class="pill">'+fshort(e.fecha)+'</span></div>'+
-  '<div class="small">Lote <span class="code">'+esc(e.lote||'en la foto')+'</span>'+(e.marca?' · '+esc(e.marca):'')+(e.cad?' · <span class="muted">cad. '+fdate(e.cad)+'</span>':'')+'</div></button>'}
+  '<div class="small">Lote <span class="code">'+esc(e.lote||'en la foto')+'</span>'+(e.marca?' · '+esc(e.marca):'')+(provNom(e)?' · '+esc(provNom(e)):'')+(e.cad?' · <span class="muted">cad. '+fdate(e.cad)+'</span>':'')+'</div></button>'}
 function formEntrada(ing,edit,after){
   const e=edit||{},prev=entradasDe(ing)[0];let foto=null;const tenia=!!e.foto;
   const marcas=[...new Set(entradasDe(ing).map(x=>x.marca).filter(Boolean))];
@@ -333,6 +350,7 @@ function formEntrada(ing,edit,after){
    '<button type="button" class="photo" id="ph-btn"><span id="ph-txt" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px">'+CAM+'Hacer foto al lote y la fecha</span><img id="ph-img" hidden alt="Foto del lote"></button>'+
    '<label for="en-lote">Número de lote</label><input id="en-lote" class="lote" value="'+esc(e.lote||'')+'" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Ej. L2611A">'+
    '<div class="hint" id="en-hint">'+(CLOUD?'Al hacer la foto, la app lee el lote, la caducidad y la marca. Revisa que estén bien.':'Escríbelo mirando la foto. También puedes tocar el campo y usar «Escanear texto» del iPhone.')+'</div>'+
+   '<label for="en-prov">Proveedor</label>'+provSelect('en-prov',e.id?e.provId:(prev&&prev.provId))+
    '<label for="en-marca">Marca</label><input id="en-marca" list="dl-m" value="'+esc(e.marca!=null?e.marca:(prev&&prev.marca)||'')+'" placeholder="Ej. la marca del queso"><datalist id="dl-m">'+marcas.map(m=>'<option value="'+esc(m)+'">').join('')+'</datalist>'+
    '<div class="two"><div><label for="en-f">Día que entra</label><input id="en-f" type="date" value="'+(e.fecha||today())+'"></div>'+
    '<div><label for="en-c">Caducidad <span style="font-weight:400">(opcional)</span></label><input id="en-c" type="date" value="'+(e.cad||'')+'"></div></div>'+
@@ -342,20 +360,21 @@ function formEntrada(ing,edit,after){
   if(tenia)getFoto(e.id).then(d=>{if(d)show(d)});
   $('#ph-btn').onclick=()=>{const inp=$('#ph-in');inp.value='';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;
     compress(f).then(d=>{foto=d;show(d);if(CLOUD)autoLote(d);else if(!$('#en-lote').value)$('#en-lote').focus()}).catch(()=>toast('No se pudo usar esa foto'))};inp.click()};
-  let factura=null;
+  let factura=null;montarProvSelect('en-prov');
   if($('#fac-btn'))$('#fac-btn').onclick=()=>pickPhoto(d=>{factura=d;$('#fac-img').src=d;$('#fac-img').hidden=false;$('#fac-btn').textContent='Repetir foto de la factura'});
   $('#en-save').onclick=()=>{
     const lote=$('#en-lote').value.trim().toUpperCase();
     if(!lote&&!foto&&!tenia){toast('Haz la foto o escribe el número de lote');return}
-    const o={id:e.id||uid(),ing:ing,lote:lote,marca:$('#en-marca').value.trim(),fecha:$('#en-f').value||today(),cad:$('#en-c').value,foto:!!(foto||tenia),ts:e.ts||Date.now()};
-    (foto?saveFoto(o.id,foto):Promise.resolve()).then(()=>saveRec('e',o))
-     .then(()=>{if(!factura)return;const dc={id:uid(),tipo:'Factura',nombre:ing+(o.marca?' · '+o.marca:''),fecha:o.fecha,vence:'',eid:o.id,ts:Date.now()};
-       return saveFoto('doc_'+dc.id,factura).then(()=>saveRec('d',dc))}).then(()=>{toast('Guardado: '+ing+(lote?' · lote '+lote:''));closeSheet();if(after)setTimeout(after,50)}).catch(()=>{})};
+    leerProvSelect('en-prov').then(pv=>{if(pv===false)return;
+    const o={id:e.id||uid(),ing:ing,lote:lote,marca:$('#en-marca').value.trim(),provId:pv?pv.id:'',provNombre:pv?pv.nombre:'',fecha:$('#en-f').value||today(),cad:$('#en-c').value,foto:!!(foto||tenia),ts:e.ts||Date.now()};
+    return (foto?saveFoto(o.id,foto):Promise.resolve()).then(()=>saveRec('e',o))
+     .then(()=>{if(!factura)return;const dc={id:uid(),tipo:'Factura',nombre:ing+(o.marca?' · '+o.marca:''),provId:o.provId,provNombre:o.provNombre,fecha:o.fecha,vence:'',eid:o.id,ts:Date.now()};
+       return saveFoto('doc_'+dc.id,factura).then(()=>saveRec('d',dc))}).then(()=>{toast('Guardado: '+ing+(lote?' · lote '+lote:'')+(factura?' · factura apuntada':''));closeSheet();if(after)setTimeout(after,50)})}).catch(()=>{})};
   if(edit)confirmBtn($('#en-del'),'Pulsa otra vez para borrar',()=>{delRec('e',e.id).then(()=>{delFoto(e.id);closeSheet();toast('Entrada borrada')})})}
 function verEntrada(id){const e=M.e[id];if(!e)return;
   const usos=tartasOrden().filter(t=>t.ings.some(i=>i.eid===e.id));
   sheet('<h2>'+esc(e.ing)+'</h2>'+(e.foto?'<img class="bigphoto" data-foto="'+esc(e.id)+'" alt="Foto del lote">':'')+
-   '<div class="lots"><span class="k">Lote</span><span class="code">'+esc(e.lote||'en la foto')+'</span><span class="k">Marca</span><span>'+esc(e.marca||'—')+'</span>'+
+   '<div class="lots"><span class="k">Lote</span><span class="code">'+esc(e.lote||'en la foto')+'</span><span class="k">Marca</span><span>'+esc(e.marca||'—')+'</span><span class="k">Proveedor</span><span>'+esc(provNom(e)||'—')+'</span>'+
    '<span class="k">Entró</span><span>'+fdate(e.fecha)+'</span><span class="k">Caducidad</span><span>'+fdate(e.cad)+'</span></div>'+
    '<h3>Tartas hechas con este lote</h3>'+(usos.length?usos.map(t=>'<div class="small">'+fdate(t.fecha)+' · '+esc(t.sabor)+' · '+t.uds+' ud.</div>').join(''):'<div class="small muted">Todavía ninguna.</div>')+
    '<button class="btn full" id="ve-ed" style="margin-top:18px">Editar</button>');
@@ -371,12 +390,12 @@ function vTartas(){
    '<div class="card sabores">'+(c.sabores.length?c.sabores.map(s=>{const n=cnt[s.id]||0,
       ya=Object.values(M.t).filter(x=>x.fecha===diaReg&&x.saborId===s.id).reduce((a,x)=>a+(+x.uds||0),0),falta=s.ings.filter(i=>!loteActual(i,diaReg));
     return '<div class="srow'+(n?' on':'')+'"><div class="sinfo"><b>'+esc(s.nombre)+'</b>'+
-      '<div class="small muted">'+(ya?'Ya guardadas ese día: '+ya+' · ':'')+'<button type="button" class="link" data-act="tarta" data-id="'+esc(s.id)+'">Ver lotes</button> · <button type="button" class="link" data-act="sabor-editar" data-id="'+esc(s.id)+'">Ingredientes</button></div>'+
+      '<div class="small muted">'+(ya?'Ya guardadas ese día: '+ya+' · ':'')+'<button type="button" class="link" data-act="tarta" data-id="'+esc(s.id)+'">Ver lotes</button>'+(esInv()?'':' · <button type="button" class="link" data-act="sabor-editar" data-id="'+esc(s.id)+'">Ingredientes</button>')+'</div>'+
       (falta.length?'<div class="small warn">Falta el lote de '+esc(falta.join(', '))+'</div>':'')+'</div>'+
       '<div class="step"><button type="button" data-step="-1" data-id="'+esc(s.id)+'" aria-label="Una menos de '+esc(s.nombre)+'">−</button><output>'+n+'</output>'+
       '<button type="button" data-step="1" data-id="'+esc(s.id)+'" aria-label="Una más de '+esc(s.nombre)+'">+</button></div></div>'}).join(''):'<div class="small muted" style="padding:12px 0">Añade tu primer sabor.</div>')+'</div>'+
    '<button class="btn pri big" id="tr-save"'+(total?'':' disabled')+'>'+(total?'Guardar '+total+' tarta'+(total===1?'':'s'):'Pulsa + en las que has hecho')+'</button>'+
-   '<button class="tile add" data-act="sabor-nuevo" style="width:100%;margin-top:12px">+ Añadir sabor</button>';
+   (esInv()?'':'<button class="tile add" data-act="sabor-nuevo" style="width:100%;margin-top:12px">+ Añadir sabor</button>');
   const dias=[...new Set(Object.values(M.t).map(x=>x.fecha))];if(!dias.includes(t))dias.push(t);dias.sort().reverse();
   if(!diaSel||!dias.includes(diaSel))diaSel=t;
   h+='<button class="btn full" data-act="alergenos" style="margin-top:10px">Tabla de alérgenos</button>';
@@ -431,14 +450,16 @@ function verTarta(id){const t=M.t[id];if(!t)return;
    '<div class="lots">'+t.ings.map(i=>'<span class="k">'+esc(i.ing)+'</span><span>'+(i.lote?'<span class="code">'+esc(i.lote)+'</span>':'<span class="warn">sin lote</span>')+(i.marca?' · '+esc(i.marca):'')+'</span>').join('')+'</div>'+
    (t.nota?'<p class="small">'+esc(t.nota)+'</p>':'')+
    '<div class="fotos">'+t.ings.filter(i=>i.eid&&M.e[i.eid]&&M.e[i.eid].foto).map(i=>'<img data-foto="'+esc(i.eid)+'" alt="Foto del lote de '+esc(i.ing)+'">').join('')+'</div>'+
-   '<button class="btn danger full" id="vt-del" style="margin-top:18px">Borrar esta tarta</button>');
-  fillThumbs($('#sheet'));confirmBtn($('#vt-del'),'Pulsa otra vez para borrar',()=>{delRec('t',id).then(()=>{closeSheet();toast('Tarta borrada')})})}
+   (t.mod?'<div class="hint">Corregida el '+fmod(t.mod)+'.</div>':'')+
+   '<button class="btn full" id="vt-ed" style="margin-top:18px">Corregir (cantidad, día o lotes)</button>'+
+   '<button class="btn danger full" id="vt-del" style="margin-top:10px">Borrar esta tarta</button>');
+  fillThumbs($('#sheet'));$('#vt-ed').onclick=()=>formEditarTarta(id);confirmBtn($('#vt-del'),'Pulsa otra vez para borrar',()=>{delRec('t',id).then(()=>{closeSheet();toast('Tarta borrada')})})}
 
 /* ===== Meses ===== */
 function vMeses(){
   const ms=new Set();Object.values(M.t).forEach(t=>ms.add(t.fecha.slice(0,7)));Object.values(M.e).forEach(e=>ms.add(e.fecha.slice(0,7)));
   const lista=[...ms].sort().reverse();
-  let h='<div class="two" style="margin-bottom:6px"><button class="btn pri" data-act="informe">Informe para Sanidad</button><button class="btn" data-act="stats">Mis estadísticas</button></div><label for="q">Buscar un número de lote</label><input id="q" type="search" placeholder="Ej. L2611A" autocapitalize="characters" autocomplete="off"><div id="qres"></div><div id="meses">';
+  let h='<div class="two" style="margin-bottom:6px"><button class="btn pri" data-act="informe">Informe para Sanidad</button>'+(esInv()?'':'<button class="btn" data-act="stats">Mis estadísticas</button>')+'</div><label for="q">Buscar un número de lote</label><input id="q" type="search" placeholder="Ej. L2611A" autocapitalize="characters" autocomplete="off"><div id="qres"></div><div id="meses">';
   if(!lista.length)h+='<div class="empty" style="margin-top:14px"><b>Aún no hay nada</b>Aquí verás cada mes las tartas que has hecho con los lotes de cada ingrediente.</div>';
   lista.forEach((k,ix)=>{const ts=tartasOrden().filter(t=>t.fecha.slice(0,7)===k),es=Object.values(M.e).filter(e=>e.fecha.slice(0,7)===k).sort((a,b)=>a.fecha<b.fecha?1:-1);
     const uds=ts.reduce((a,t)=>a+(+t.uds||0),0),tc=Object.values(M.c).filter(r=>r.fecha.slice(0,7)===k),dias=new Set(tc.map(r=>r.fecha)).size,mal=tc.filter(r=>!r.ok).length;
@@ -466,7 +487,7 @@ function compartirMes(k){
 /* ===== Cámara y limpieza ===== */
 function vCamara(){
   const c=M.cfg,t=today();
-  let h='<p class="lead">Temperatura de hoy</p>';
+  let h='<button class="btn full" data-act="informe" style="margin-bottom:12px">Informe para Sanidad</button><p class="lead">Temperatura de hoy</p>';
   c.camaras.forEach(cam=>{const r=M.c[t+'_'+cam.id];
     h+='<div class="card"><div class="cam"><div><b>'+esc(cam.nombre)+'</b><div class="small muted">Entre '+cam.min+' y '+cam.max+' °C</div></div>'+
       '<input id="cam-'+esc(cam.id)+'" inputmode="decimal" placeholder="°C" aria-label="Temperatura de '+esc(cam.nombre)+'" value="'+(r?r.v:'')+'"></div>'+
@@ -478,11 +499,13 @@ function vCamara(){
   const dias=[...new Set(Object.values(M.c).map(r=>r.fecha))].sort().reverse().slice(0,7);
   if(dias.length){h+='<h3>Últimos días</h3><div class="tbl"><table><thead><tr><th>Día</th>'+c.camaras.map(x=>'<th>'+esc(x.nombre)+'</th>').join('')+'</tr></thead><tbody>'+
     dias.map(d=>'<tr><td>'+fshort(d)+'</td>'+c.camaras.map(x=>{const r=M.c[d+'_'+x.id];return '<td class="'+(r&&!r.ok?'bad':'')+'">'+(r?r.v+' °C':'—')+'</td>'}).join('')+'</tr>').join('')+'</tbody></table></div>'}
+  h+=bloqueMes();
   return h}
 function camEstado(){let mal=false;M.cfg.camaras.forEach(cam=>{const v=num($('#cam-'+cam.id).value),o=$('#cl-'+cam.id);if(v==null)return;
   const ok=v>=cam.min&&v<=cam.max;if(!ok)mal=true;o.innerHTML=ok?'<span class="okc">Correcta</span>':'<span class="bad">Fuera de rango: debe estar entre '+cam.min+' y '+cam.max+' °C</span>'});
   $('#cam-acc-w').hidden=!mal;return mal}
 function montarCamara(){
+  montarMes();
   M.cfg.camaras.forEach(cam=>$('#cam-'+cam.id).addEventListener('input',camEstado));
   $('#cam-save').onclick=()=>{const mal=camEstado(),acc=$('#cam-acc').value.trim(),t=today(),hora=nowHM();
     if(mal&&!acc){toast('Escribe qué has hecho para corregirlo');$('#cam-acc').focus();return}
@@ -510,6 +533,9 @@ function limpiarCopia(o){const N=v=>{const n=Number(v);return isFinite(n)?n:0},N
   const c=o.cfg;['negocio','rgsean','titular','direccion','horaAviso'].forEach(k=>{if(c[k]!=null)c[k]=String(c[k])});c.ingredientes=Array.isArray(c.ingredientes)?c.ingredientes.map(String):[];c.limpieza=Array.isArray(c.limpieza)?c.limpieza.map(String):[];
   c.sabores=(Array.isArray(c.sabores)?c.sabores:[]).map(s=>({id:String(s.id),nombre:String(s.nombre||''),ings:Array.isArray(s.ings)?s.ings.map(String):[],horno:String(s.horno||''),min:String(s.min||''),alergenos:(Array.isArray(s.alergenos)?s.alergenos:[]).map(String).filter(a=>ALERG.includes(a)),vida:s.vida==null?3:N(s.vida),conservacion:String(s.conservacion||''),descripcion:String(s.descripcion||'')}));
   const F8=/^\d{4}-\d{2}-\d{2}$/;['e','t','c','l','d'].forEach(k=>Object.keys(o[k]).forEach(id=>{const r=o[k][id];if(!r||typeof r!=='object'||!F8.test(String(r.fecha))){delete o[k][id];return}['cad','vence'].forEach(f=>{if(r[f]!=null&&r[f]!==''&&!F8.test(String(r[f])))r[f]=''});if(r.lote!=null)r.lote=String(r.lote);if(k==='t'&&Array.isArray(r.alergenos))r.alergenos=r.alergenos.map(String).filter(a=>ALERG.includes(a))}));
+  const PK=['nombre','suministra','cif','rgseaa','telefono','email','contacto','direccion','notas'];
+  c.proveedores=(Array.isArray(c.proveedores)?c.proveedores:[]).filter(p=>p&&typeof p==='object'&&p.id&&p.nombre).map(p=>{const q={id:String(p.id),ts:N(p.ts)};PK.forEach(k=>{q[k]=String(p[k]==null?'':p[k])});return q});
+  ['e','d'].forEach(k=>Object.values(o[k]).forEach(r=>{if(r&&typeof r==='object'){r.provId=r.provId==null?'':String(r.provId);r.provNombre=r.provNombre==null?'':String(r.provNombre)}}));
   c.camaras=(Array.isArray(c.camaras)?c.camaras:[]).map(x=>({id:String(x.id),nombre:String(x.nombre||''),min:N(x.min),max:N(x.max)}));
   Object.values(o.c).forEach(r=>{r.v=N(r.v);r.ok=!!r.ok});Object.values(o.l).forEach(r=>{r.i=N(r.i)});
   Object.values(o.t).forEach(t=>{t.uds=N(t.uds);t.horno=Nn(t.horno);t.min=Nn(t.min);if(!Array.isArray(t.ings))t.ings=[]});
@@ -543,44 +569,50 @@ $('#bk-in').addEventListener('change',function(){const f=this.files&&this.files[
 
 /* ===== Ajustes ===== */
 function ajustes(){
+  if(esInv())return ajustesInvitado();
   const w=JSON.parse(JSON.stringify(M.cfg));
   function leer(){w.negocio=$('#aj-n').value.trim();w.rgsean=$('#aj-rg').value.trim();w.titular=$('#aj-ti').value.trim();w.direccion=$('#aj-di').value.trim();
     w.ingredientes=$('#aj-i').value.split('\n').map(x=>x.trim()).filter(Boolean);
-    w.sabores=$$('.aj-s').map(b=>({id:b.dataset.id,nombre:$('.aj-sn',b).value.trim(),ings:$$('input[type=checkbox]:checked',b).map(x=>x.value),horno:$('.aj-sh',b).value.trim(),min:$('.aj-sm',b).value.trim()})).filter(s=>s.nombre);
     w.camaras=$('#aj-c').value.split('\n').map(x=>x.trim()).filter(Boolean).map((x,i)=>{const p=x.split(';').map(y=>y.trim());const mn=num(p[1]),mx=num(p[2]);return {id:'c'+(i+1),nombre:p[0],min:mn==null?0:mn,max:mx==null?4:mx}});
-    w.limpieza=$('#aj-l').value.split('\n').map(x=>x.trim()).filter(Boolean)}
-  function pintar(){
-    sheet('<h2>Ajustes</h2><label for="aj-n" style="margin-top:0">Nombre del obrador</label><input id="aj-n" value="'+esc(w.negocio)+'" placeholder="Mi Obrador">'+
+    w.limpieza=$('#aj-l').value.split('\n').map(x=>x.trim()).filter(Boolean);
+    w.sabores=M.cfg.sabores;w.proveedores=M.cfg.proveedores||[];w.horaAviso=M.cfg.horaAviso;w.avisoCal=M.cfg.avisoCal}
+  const IC={"seg":"<rect x=\"5\" y=\"11\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 11V8a4 4 0 018 0v3\"/>","prov":"<path d=\"M2 6h11v10H2zM13 9h4l4 4v3h-8\"/><circle cx=\"6\" cy=\"17.5\" r=\"1.8\"/><circle cx=\"17\" cy=\"17.5\" r=\"1.8\"/>","neg": "<path d=\"M4 10l1.5-5h13L20 10M4 10v9h16v-9M4 10h16M9 19v-5h6v5\"/>", "tar": "<path d=\"M3 18h18M4 18v-5l16-6v11\"/><path d=\"M4 13l16-6\"/>", "ing": "<path d=\"M3 8l9-5 9 5v8l-9 5-9-5z\"/><path d=\"M3 8l9 5 9-5M12 13v8\"/>", "cam": "<path d=\"M10 4a2 2 0 014 0v9.2a4 4 0 11-4 0z\"/><path d=\"M12 9v6\"/>", "con": "<path d=\"M4 9a12 12 0 0116 0M7 12.5a7 7 0 0110 0M10 16a2.5 2.5 0 014 0\"/><circle cx=\"12\" cy=\"19\" r=\"1\"/>", "av": "<path d=\"M6 16V11a6 6 0 0112 0v5l2 2H4z\"/><path d=\"M10 20a2 2 0 004 0\"/>", "cop": "<path d=\"M7 18a4 4 0 01-.5-8A6 6 0 0118 9a4.5 4.5 0 01-1 9z\"/><path d=\"M12 11v6M9.5 14.5L12 17l2.5-2.5\"/>", "dat": "<path d=\"M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z\"/>"};
+  const sec=(id,titulo,extra,cuerpo,ic)=>'<details class="aj" id="'+id+'"><summary>'+(ic?'<svg class="aj-i" viewBox="0 0 24 24" aria-hidden="true">'+IC[ic]+'</svg>':'')+'<span>'+titulo+'</span>'+(extra?'<span class="aj-x">'+extra+'</span>':'')+'</summary><div class="aj-b">'+cuerpo+'</div></details>';
+  const est=()=>typeof SY!=='undefined'&&SY?(SY.err?'Revisar':'Activada'):'No conectada';
+  sheet('<h2>Ajustes</h2>'+
+   sec('aj-neg','Mi negocio',esc(w.negocio||''),
+     '<label for="aj-n" style="margin-top:0">Nombre del obrador</label><input id="aj-n" value="'+esc(w.negocio)+'" placeholder="Mi Obrador">'+
      '<label for="aj-rg">Nº de registro sanitario (sale en el informe)</label><input id="aj-rg" value="'+esc(w.rgsean||'')+'" placeholder="Ej. RGSEAA 20.000000/MA">'+
-     '<div class="two"><div><label for="aj-ti">Titular</label><input id="aj-ti" value="'+esc(w.titular||'')+'"></div><div><label for="aj-di">Dirección</label><input id="aj-di" value="'+esc(w.direccion||'')+'"></div></div>'+
-     '<h3>Sabores de tarta</h3>'+w.sabores.map(s=>'<div class="card aj-s" data-id="'+esc(s.id)+'"><input class="aj-sn" value="'+esc(s.nombre)+'" placeholder="Nombre del sabor" aria-label="Nombre del sabor">'+
-       '<div class="chips">'+w.ingredientes.map(i=>'<label><input type="checkbox" value="'+esc(i)+'"'+(s.ings.includes(i)?' checked':'')+'>'+esc(i)+'</label>').join('')+'</div>'+
-       '<div class="two"><div><label>Horno (°C)</label><input class="aj-sh" inputmode="numeric" value="'+esc(s.horno||'')+'"></div><div><label>Minutos</label><input class="aj-sm" inputmode="numeric" value="'+esc(s.min||'')+'"></div></div>'+
-       '<button type="button" class="btn sm danger" data-del="'+esc(s.id)+'" style="margin-top:10px">Quitar sabor</button></div>').join('')+
-     '<button type="button" class="btn full" id="aj-add">+ Añadir sabor</button>'+
-     '<button type="button" class="btn full" id="aj-fi" style="margin-top:10px">Importar fichas técnicas</button>'+
-     '<label for="aj-i">Ingredientes (uno por línea)</label><textarea id="aj-i" rows="6">'+esc(w.ingredientes.join('\n'))+'</textarea>'+
-     '<label for="aj-c">Cámaras (una por línea: nombre ; mínimo ; máximo)</label><textarea id="aj-c" rows="3">'+esc(w.camaras.map(c=>c.nombre+' ; '+c.min+' ; '+c.max).join('\n'))+'</textarea>'+
-     '<label for="aj-l">Tareas de limpieza (una por línea)</label><textarea id="aj-l" rows="4">'+esc(w.limpieza.join('\n'))+'</textarea>'+
-     '<button class="btn pri big" id="aj-save">Guardar ajustes</button>'+
-     (CLOUD?'':'<h3>Sincronizar iPhone y Mac</h3><div id="sync-box"></div>')+(CLOUD?'<h3>Tus datos</h3><div class="small muted">Se guardan en tu cuenta de Claude, en una página privada que solo abres tú. Puedes abrirla desde el móvil o el ordenador. Cada mañana te llega al móvil un aviso con lo que tengas pendiente.</div>':
-     '<h3>Avisos en el iPhone</h3><div class="small muted">La app te muestra los avisos al abrirla. Para que el iPhone te avise cada día aunque no la abras, añade el aviso a tu calendario.</div>'+
+     '<div class="two"><div><label for="aj-ti">Titular</label><input id="aj-ti" value="'+esc(w.titular||'')+'"></div><div><label for="aj-di">Dirección</label><input id="aj-di" value="'+esc(w.direccion||'')+'"></div></div>'+'<button class="btn pri full aj-sv" id="aj-save" style="margin-top:14px">Guardar</button>','neg')+
+   sec('aj-sab','Tartas y alérgenos',String(w.sabores.length),
+     w.sabores.map(s=>'<div class="aj-row"><div><b>'+esc(s.nombre)+'</b><div class="small muted">'+esc((s.alergenos||[]).join(', ')||'Sin alérgenos indicados')+'</div></div><button type="button" class="btn sm" data-ajsab="'+esc(s.id)+'">Editar</button></div>').join('')+
+     '<div class="two" style="margin-top:12px"><button type="button" class="btn" data-act="sabor-nuevo">+ Añadir sabor</button><button type="button" class="btn" id="aj-fi">Importar fichas</button></div>'+
+     '<button type="button" class="btn full" data-act="alergenos" style="margin-top:10px">Tabla de alérgenos</button>','tar')+
+   sec('aj-prov','Proveedores',String(provs().length),secProveedores(),'prov')+
+   sec('aj-ing','Ingredientes',String(w.ingredientes.length),'<label for="aj-i" style="margin-top:0">Uno por línea</label><textarea id="aj-i" rows="8">'+esc(w.ingredientes.join('\n'))+'</textarea>'+'<button class="btn pri full aj-sv" style="margin-top:12px">Guardar</button>','ing')+
+   sec('aj-cam','Cámaras y limpieza','',
+     '<label for="aj-c" style="margin-top:0">Cámaras (una por línea: nombre ; mínimo ; máximo)</label><textarea id="aj-c" rows="3">'+esc(w.camaras.map(c=>c.nombre+' ; '+c.min+' ; '+c.max).join('\n'))+'</textarea>'+
+     '<label for="aj-l">Tareas de limpieza (una por línea)</label><textarea id="aj-l" rows="4">'+esc(w.limpieza.join('\n'))+'</textarea>'+'<button class="btn pri full aj-sv" style="margin-top:12px">Guardar</button>','cam')+
+   sec('aj-seg','Seguridad',(pinGet()?[pinGet().f?faceNombre():'',pinGet().h?'código':''].filter(Boolean).join(' + '):'Sin bloqueo'),'<div id="seg-box">'+secSeguridad()+'</div>','seg')+
+   (CLOUD?sec('aj-dat','Tus datos','','<div class="small muted">Se guardan en tu cuenta de Claude, en una página privada que solo abres tú.</div>','dat'):
+    sec('aj-syn','Conectividad',est(),'<div class="small muted" style="margin-bottom:8px">Para tener lo mismo en el iPhone y en el Mac.</div><div id="sync-box"></div>','con')+
+    sec('aj-av','Avisos',esc(w.horaAviso||'16:00'),
+     '<div class="small muted">La app te muestra los avisos al abrirla. Para que el iPhone te avise cada día aunque no la abras, añade el aviso a tu calendario.</div>'+
      '<label for="aj-h">Hora del aviso diario</label><input id="aj-h" type="time" value="'+esc(w.horaAviso||'16:00')+'">'+
      '<button type="button" class="btn full" id="aj-ics" style="margin-top:10px">Añadir aviso diario al calendario</button>'+
-     ('Notification' in window?'<button type="button" class="btn full" id="aj-badge" style="margin-top:10px">Mostrar el número de avisos en el icono</button>':'')+
-     '<h3>Copia de seguridad</h3><div class="small muted">Tus datos están solo en este móvil. '+(ultimaCopia()?'Última copia: '+fdate(ultimaCopia())+'.':'Aún no has hecho ninguna copia.')+'</div>'+
-     '<div class="two" style="margin-top:10px"><button class="btn" id="aj-cp">Hacer copia</button><button class="btn" id="aj-rs">Cargar copia</button></div>'+'<h3>Copias automáticas en el móvil</h3><div class="small muted">Cada día, al abrir la app, se guarda sola una copia dentro del móvil (se guardan los últimos 14 días). Sirve si borras o cambias algo sin querer.</div><div id="snaps" style="margin-top:8px"></div>'));
-    $('#aj-fi').onclick=()=>$('#fi-in').click();
-    $('#aj-i').onchange=()=>{leer();pintar()};
-    $('#aj-add').onclick=()=>{leer();w.sabores.push({id:'s'+uid(),nombre:'',ings:w.ingredientes.slice(0,4),horno:'',min:''});pintar();const l=$$('.aj-sn');l[l.length-1].value='';l[l.length-1].focus()};
-    $$('[data-del]').forEach(b=>confirmBtn(b,'Pulsa otra vez para quitarlo',()=>{leer();w.sabores=w.sabores.filter(s=>s.id!==b.dataset.del);pintar()}));
-    $('#aj-save').onclick=()=>{leer();if(!w.ingredientes.length){toast('Pon al menos un ingrediente');return}if(!w.camaras.length)w.camaras=[{id:'c1',nombre:'Cámara',min:0,max:4}];
-      saveCfg(w).then(()=>{closeSheet();toast('Ajustes guardados')}).catch(()=>{})};
-    if($('#aj-ics'))$('#aj-ics').onclick=()=>{const h=$('#aj-h').value||'16:00';w.horaAviso=h;w.avisoCal=true;M.cfg.horaAviso=h;M.cfg.avisoCal=true;saveCfg(M.cfg).catch(()=>{});bajarIcs('aviso-diario-obrador.ics',[icsDiario(h)])};
-    if($('#aj-badge'))$('#aj-badge').onclick=()=>{try{Notification.requestPermission().then(p=>{if(p==='granted'){updateBadges();toast('Verás el número de avisos en el icono')}else toast('No se ha dado permiso')})}catch(e){toast('Este iPhone no lo permite')}};
-    if($('#aj-cp')){$('#aj-cp').onclick=hacerCopia;$('#aj-rs').onclick=()=>$('#bk-in').click()}
-    if(!CLOUD){fillSnaps();if(typeof pintarSync==='function')pintarSync()}}
-  pintar()}
+     ('Notification' in window?'<button type="button" class="btn full" id="aj-badge" style="margin-top:10px">Mostrar el número de avisos en el icono</button>':''),'av')+
+    sec('aj-cop','Copias de seguridad',ultimaCopia()?fdate(ultimaCopia()):'',
+     '<div class="small muted">'+(ultimaCopia()?'Última copia en iCloud: '+fdate(ultimaCopia())+'.':'Aún no has hecho ninguna copia.')+'</div>'+
+     '<div class="two" style="margin-top:10px"><button class="btn" id="aj-cp">Hacer copia</button><button class="btn" id="aj-rs">Cargar copia</button></div>'+
+     '<h3>Copias automáticas en el móvil</h3><div class="small muted">Cada día, al abrir la app, se guarda sola una copia dentro del móvil (últimos 14 días). Sirve si borras o cambias algo sin querer.</div><div id="snaps" style="margin-top:8px"></div>','cop')));
+  $('#aj-fi').onclick=()=>$('#fi-in').click();montarProveedores();montarSeguridad();
+  $$('[data-ajsab]').forEach(b=>b.onclick=()=>formSabor(b.dataset.ajsab));
+  $$('.aj-sv').forEach(b=>b.onclick=()=>{leer();if(!w.ingredientes.length){toast('Pon al menos un ingrediente');return}if(!w.camaras.length)w.camaras=[{id:'c1',nombre:'Cámara',min:0,max:4}];
+    saveCfg(w).then(()=>{closeSheet();toast('Ajustes guardados')}).catch(()=>{})});
+  if($('#aj-ics'))$('#aj-ics').onclick=()=>{const h=$('#aj-h').value||'16:00';M.cfg.horaAviso=h;M.cfg.avisoCal=true;saveCfg(M.cfg).catch(()=>{});bajarIcs('aviso-diario-obrador.ics',[icsDiario(h)])};
+  if($('#aj-badge'))$('#aj-badge').onclick=()=>{try{Notification.requestPermission().then(p=>{if(p==='granted'){updateBadges();toast('Verás el número de avisos en el icono')}else toast('No se ha dado permiso')})}catch(e){toast('Este iPhone no lo permite')}};
+  if($('#aj-cp')){$('#aj-cp').onclick=hacerCopia;$('#aj-rs').onclick=()=>$('#bk-in').click()}
+  if(!CLOUD){fillSnaps();if(typeof pintarSync==='function')pintarSync()}}
 
 /* ===== Navegación ===== */
 let tab='entradas';
@@ -603,6 +635,7 @@ document.addEventListener('click',e=>{
   else if(d.act==='tarta')formTarta(d.id);
   else if(d.act==='ver-tarta')verTarta(d.id);
   else if(d.act==='share-mes')compartirMes(d.m);
+  else if(esInv()&&['copia','stats','sabor-nuevo','sabor-editar'].includes(d.act))toast('Solo el administrador puede hacer esto');
   else if(d.act==='copia')hacerCopia();
   else if(d.act==='ajustes')ajustes();
   else if(d.act==='informe')informeSheet();
@@ -629,7 +662,7 @@ const TIPOS=['Factura','Albarán','Carnet de manipulador','Control de plagas','A
 const docsOrden=()=>Object.values(M.d).sort((a,b)=>a.fecha===b.fecha?b.ts-a.ts:(a.fecha<b.fecha?1:-1));
 function docEstado(d){if(!d.vence)return null;const n=daysBetween(today(),d.vence);return n<0?'bad':n<=30?'warn':null}
 function vDocs(){
-  let h=avisoCopia()+'<p class="lead">Documentos</p><div class="tiles">'+
+  let h=avisoCopia()+'<button class="btn full" data-act="informe" style="margin-bottom:12px">Informe para Sanidad</button><p class="lead">Documentos</p><div class="tiles">'+
    '<button class="tile" data-act="doc-nuevo" data-tipo="Factura"><span class="tn">Foto de factura</span><span class="ts">O albarán de un proveedor</span></button>'+
    '<button class="tile" data-act="doc-nuevo" data-tipo="Otro"><span class="tn">Otro documento</span><span class="ts">Carnet, plagas, revisiones…</span></button></div>';
   const ren=Object.values(M.d).filter(docEstado).sort((a,b)=>a.vence<b.vence?-1:1);
@@ -640,29 +673,37 @@ function vDocs(){
   return h}
 function cardDoc(d){const st=docEstado(d);
   return '<button class="card doc" data-act="ver-doc" data-id="'+esc(d.id)+'"><img class="thumb" data-foto="doc_'+esc(d.id)+'" alt=""><b>'+esc(d.tipo)+'</b>'+
-   (d.nombre?'<div class="small">'+esc(d.nombre)+'</div>':'')+'<div class="small muted">'+fdate(d.fecha)+
+   (provNom(d)||d.nombre?'<div class="small">'+esc([provNom(d),d.nombre].filter(Boolean).join(' · '))+'</div>':'')+'<div class="small muted">'+fdate(d.fecha)+
    (d.vence?' · <span class="'+(st||'')+'">'+(st==='bad'?'caducó el ':'caduca el ')+fdate(d.vence)+'</span>':'')+'</div></button>'}
-function formDoc(tipo){let foto=null;
+function formDoc(tipo,pid){let foto=null;
   sheet('<h2>'+(tipo==='Factura'?'Foto de factura':'Nuevo documento')+'</h2>'+
    '<button type="button" class="photo" id="dc-ph"><span style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px">'+CAM+'Hacer foto al documento</span></button>'+
    '<label for="dc-t">Qué es</label><select id="dc-t">'+TIPOS.map(t=>'<option'+(t===tipo?' selected':'')+'>'+t+'</option>').join('')+'</select>'+
-   '<label for="dc-n">Proveedor o descripción</label><input id="dc-n" placeholder="Ej. Quesos y lácteos del Norte">'+
+   '<label for="dc-p">Proveedor</label>'+provSelect('dc-p',pid||'')+
+   '<label for="dc-n">Proveedor o descripción <span style="font-weight:400">(opcional)</span></label><input id="dc-n" placeholder="Ej. Quesos y lácteos del Norte">'+
    '<div class="two"><div><label for="dc-f">Fecha</label><input id="dc-f" type="date" value="'+today()+'"></div>'+
    '<div><label for="dc-v">Caduca <span style="font-weight:400">(opcional)</span></label><input id="dc-v" type="date"></div></div>'+
    '<div class="hint" id="dc-hint">'+(CLOUD?'Al hacer la foto, la app rellena los datos sola. ':'')+'Si pones cuándo caduca, te avisará un mes antes.</div>'+
    '<button class="btn pri big" id="dc-save">Guardar</button>');
+  montarProvSelect('dc-p');
   $('#dc-ph').onclick=()=>pickPhoto(d=>{foto=d;photoBtn($('#dc-ph'),d);if(CLOUD)autoDoc(d)});
   $('#dc-save').onclick=()=>{if(!foto){toast('Haz la foto del documento');return}
-    const o={id:uid(),tipo:$('#dc-t').value,nombre:$('#dc-n').value.trim(),fecha:$('#dc-f').value||today(),vence:$('#dc-v').value,ts:Date.now()};
-    saveFoto('doc_'+o.id,foto).then(()=>saveRec('d',o)).then(()=>{closeSheet();toast('Documento guardado')}).catch(()=>{})}}
+    leerProvSelect('dc-p').then(pv=>{if(pv===false)return;
+    const o={id:uid(),tipo:$('#dc-t').value,nombre:$('#dc-n').value.trim(),provId:pv?pv.id:'',provNombre:pv?pv.nombre:'',fecha:$('#dc-f').value||today(),vence:$('#dc-v').value,ts:Date.now()};
+    return saveFoto('doc_'+o.id,foto).then(()=>saveRec('d',o)).then(()=>{closeSheet();toast((o.tipo==='Factura'?'Factura apuntada':'Documento guardado')+(pv?' · '+pv.nombre:''))})}).catch(()=>{})}}
 function verDoc(id){const d=M.d[id];if(!d)return;const st=docEstado(d);
   sheet('<h2>'+esc(d.tipo)+'</h2><img class="bigphoto" data-foto="doc_'+esc(d.id)+'" alt="Foto del documento">'+
-   '<div class="lots"><span class="k">Proveedor</span><span>'+esc(d.nombre||'—')+'</span><span class="k">Fecha</span><span>'+fdate(d.fecha)+'</span>'+
+   '<div class="lots"><span class="k">Proveedor</span><span>'+esc(provNom(d)||'—')+'</span>'+(d.nombre?'<span class="k">Descripción</span><span>'+esc(d.nombre)+'</span>':'')+'<span class="k">Fecha</span><span>'+fdate(d.fecha)+'</span>'+
    (d.vence?'<span class="k">Caduca</span><span class="'+(st||'')+'">'+fdate(d.vence)+'</span>':'')+'</div>'+
+   '<label for="dv-p">'+(d.provId?'Cambiar proveedor':'¿De qué proveedor es?')+'</label>'+provSelect('dv-p',d.provId||'')+'<button type="button" class="btn full" id="dv-ps" style="margin-top:8px" hidden>Guardar proveedor</button>'+
    '<label for="dv-v">'+(d.vence?'Cambiar fecha de caducidad':'¿Caduca? Pon la fecha y te avisaré')+'</label><input id="dv-v" type="date" value="'+(d.vence||'')+'">'+
    (d.vence?'<button class="btn full" id="dv-ics" style="margin-top:10px">Avisarme también en el calendario</button>':'')+
-   '<button class="btn danger full" id="dv-del" style="margin-top:14px">Borrar documento</button>');
+   '<button class="btn full" id="dv-ed" style="margin-top:14px">Corregir datos</button>'+
+   '<button class="btn danger full" id="dv-del" style="margin-top:10px">Borrar documento</button>');
+  $('#dv-ed').onclick=()=>formEditarDoc(id);
   fillThumbs($('#sheet'));
+  montarProvSelect('dv-p');const dvp=$('#dv-p'),dvo=dvp.onchange;dvp.onchange=()=>{dvo();$('#dv-ps').hidden=false};
+  $('#dv-ps').onclick=()=>leerProvSelect('dv-p').then(pv=>{if(pv===false)return;d.provId=pv?pv.id:'';d.provNombre=pv?pv.nombre:'';return saveRec('d',d).then(()=>{toast('Proveedor guardado');verDoc(id)})}).catch(()=>{});
   $('#dv-v').onchange=()=>{d.vence=$('#dv-v').value;saveRec('d',d).then(()=>{toast('Fecha guardada');verDoc(id)}).catch(()=>{})};
   if($('#dv-ics'))$('#dv-ics').onclick=()=>bajarIcs('renovar-'+norm(d.tipo).replace(/[^a-z0-9]+/g,'-')+'.ics',[icsDoc(d)]);
   confirmBtn($('#dv-del'),'Pulsa otra vez para borrar',()=>{delRec('d',id).then(()=>{delFoto('doc_'+id);closeSheet();toast('Documento borrado')})})}
@@ -685,13 +726,13 @@ function avisos(){
     if(n<0)A.push({k:'bad',t:ing+' caducado',s:'Lote '+(e.lote||'en la foto')+' · caducó el '+fdate(e.cad),ent:e.id,b:'Ver'});
     else if(n<=3)A.push({k:'warn',t:ing+' caduca pronto',s:'Lote '+(e.lote||'en la foto')+' · '+fdate(e.cad),ent:e.id,b:'Ver'})});
   const l=ultimaCopia(),hay=Object.keys(M.t).length||Object.keys(M.e).length;
-  if(!CLOUD&&hay&&necesitaCopia())A.push({k:'warn',t:'Guarda la copia de hoy',s:'Un toque y queda guardada en tu iCloud'+(l?' · la última es del '+fdate(l):''),copia:1,b:'Guardar copia'});
+  if(!CLOUD&&!esInv()&&hay&&necesitaCopia())A.push({k:'warn',t:'Guarda la copia de hoy',s:'Un toque y queda guardada en tu iCloud'+(l?' · la última es del '+fdate(l):''),copia:1,b:'Guardar copia'});
   return A.sort((a,b)=>a.k===b.k?0:(a.k==='bad'?-1:1))}
 function verAvisos(){const A=avisos();
   sheet('<h2>Avisos</h2>'+(A.length?A.map(a=>'<div class="card aviso '+a.k+'"><div class="th"><b>'+esc(a.t)+'</b></div><div class="row"><span class="small muted">'+esc(a.s)+'</span>'+
     (a.b?'<button class="btn sm" data-act="av-go"'+(a.tab?' data-tab="'+a.tab+'"':'')+(a.doc?' data-doc="'+esc(a.doc)+'"':'')+(a.ent?' data-ent="'+esc(a.ent)+'"':'')+(a.copia?' data-copia="1"':'')+(a.cal?' data-cal="1"':'')+(a.aj?' data-aj="1"':'')+'>'+esc(a.b)+'</button>':'')+'</div></div>').join('')
     :'<div class="empty"><b>Todo al día</b>No tienes nada pendiente.</div>'))}
-function irAviso(d){if(d.aj){ajustes();return}if(d.cal){const h=M.cfg.horaAviso||'16:00';bajarIcs('aviso-diario-obrador.ics',[icsDiario(h)]);M.cfg.horaAviso=h;M.cfg.avisoCal=true;saveCfg(M.cfg).then(()=>verAvisos()).catch(()=>{});return}
+function irAviso(d){if(d.aj){ajustes();abrirSec('aj-syn');return}if(d.cal){const h=M.cfg.horaAviso||'16:00';bajarIcs('aviso-diario-obrador.ics',[icsDiario(h)]);M.cfg.horaAviso=h;M.cfg.avisoCal=true;saveCfg(M.cfg).then(()=>verAvisos()).catch(()=>{});return}
   if(d.copia){hacerCopia();return}if(d.doc){verDoc(d.doc);return}if(d.ent){verEntrada(d.ent);return}
   if(d.tab){closeSheet();tab=d.tab;window.scrollTo(0,0);render()}}
 function updateBadges(){const n=avisos().length,b=$('#bell-n');if(b){b.textContent=n;b.hidden=!n}
@@ -781,13 +822,14 @@ function aDataURL(src){if(!src)return Promise.resolve(null);if(String(src).start
 const fotoData=k=>getFoto(k).then(aDataURL);
 function sumarDias(s,n){const p=s.split('-'),d=new Date(+p[0],+p[1]-1,+p[2]+n);return iso(d)}
 function sumarMeses(s,n){const p=s.split('-'),d=new Date(+p[0],+p[1]-1+n,+p[2]);return iso(d)}
+const esInterno=x=>x&&(x.tipo==='Factura'||x.tipo==='Albarán');
 function informeSheet(){
   const t=today();let listo=null;
-  sheet('<h2>Informe para Sanidad</h2><div class="small muted">Crea un documento con todos tus registros del periodo que elijas. Se envía por email o WhatsApp y se abre en cualquier móvil u ordenador, donde se puede imprimir o guardar en PDF.</div>'+
+  sheet('<h2>Informe para Sanidad</h2><div class="small muted">Crea un documento con la trazabilidad del periodo que elijas: proveedores, lotes, temperaturas, limpieza y alérgenos. Las facturas y albaranes no se incluyen nunca. Se envía por email o WhatsApp y se abre en cualquier móvil u ordenador, donde se puede imprimir o guardar en PDF.</div>'+
    '<div class="chips" style="margin-top:12px"><button type="button" class="btn sm" data-rg="mes">Este mes</button><button type="button" class="btn sm" data-rg="3m">Últimos 3 meses</button><button type="button" class="btn sm" data-rg="anio">Último año</button><button type="button" class="btn sm" data-rg="todo">Todo</button></div>'+
    '<div class="two"><div><label for="in-d">Desde</label><input id="in-d" type="date" value="'+t.slice(0,8)+'01"></div><div><label for="in-h">Hasta</label><input id="in-h" type="date" value="'+t+'"></div></div>'+
-   '<label class="check" style="border:0"><input type="checkbox" id="in-f" checked><span>Incluir las fotos de lotes, facturas y documentos</span></label>'+
-   '<label class="check" style="border:0"><input type="checkbox" id="in-s"><span>Incluir mis estadísticas de producción (son privadas: márcalo solo si quieres enviarlas)</span></label>'+
+   '<label class="check" style="border:0"><input type="checkbox" id="in-f" checked><span>Incluir las fotos de las etiquetas de lote y de los documentos sanitarios</span></label>'+
+   (esInv()?'<input type="checkbox" id="in-s" hidden>':'<label class="check" style="border:0"><input type="checkbox" id="in-s"><span>Incluir mis estadísticas de producción (son privadas: márcalo solo si quieres enviarlas)</span></label>')+
    '<button class="btn pri big" id="in-go">Crear informe</button><div id="in-res"></div>');
   $$('[data-rg]').forEach(b=>b.onclick=()=>{const r=b.dataset.rg;let d=t.slice(0,8)+'01';
     if(r==='3m')d=sumarMeses(t,-3);if(r==='anio')d=sumarMeses(t,-12);
@@ -803,9 +845,9 @@ function informeSheet(){
 function crearInforme(d,h,conFotos,conStats){
   const c=M.cfg,en=(x)=>x.fecha>=d&&x.fecha<=h,ord=(a,b)=>a.fecha===b.fecha?(a.hora||'')<(b.hora||'')?-1:1:(a.fecha<b.fecha?-1:1);
   const E=Object.values(M.e).filter(en).sort(ord),T=Object.values(M.t).filter(en).sort(ord),C=Object.values(M.c).filter(en).sort(ord),L=Object.values(M.l).filter(en);
-  const D=Object.values(M.d).filter(x=>en(x)||(x.vence&&x.vence>=d)).sort(ord);
-  const facturaDe=id=>Object.values(M.d).find(x=>x.eid===id);
-  const claves=[];if(conFotos){E.forEach(e=>{if(e.foto)claves.push(e.id);const f=facturaDe(e.id);if(f)claves.push('doc_'+f.id)});D.forEach(x=>{const k='doc_'+x.id;if(!claves.includes(k))claves.push(k)})}
+  /* Facturas y albaranes son internos: nunca van en el informe de Sanidad */
+  const D=Object.values(M.d).filter(x=>!esInterno(x)&&(en(x)||(x.vence&&x.vence>=d))).sort(ord);
+  const claves=[];if(conFotos){E.forEach(e=>{if(e.foto)claves.push(e.id)});D.forEach(x=>{const k='doc_'+x.id;if(!claves.includes(k))claves.push(k)})}
   return Promise.all([aDataURL('logo.png')].concat(claves.map(fotoData))).then(res=>{
     const logo=res[0],F={};claves.forEach((k,i)=>{if(res[i+1])F[k]=res[i+1]});
     const uds=T.reduce((a,x)=>a+(+x.uds||0),0),malT=C.filter(x=>!x.ok);
@@ -819,27 +861,46 @@ function crearInforme(d,h,conFotos,conStats){
       '<p class="sub">'+esc(c.negocio||'Puro Umami Cheesecake')+(c.rgsean?' · Nº registro sanitario: '+esc(c.rgsean):'')+'</p>'+
       (c.titular||c.direccion?'<p class="sub">'+esc([c.titular,c.direccion].filter(Boolean).join(' · '))+'</p>':'')+
       '<p class="periodo">Periodo: <b>'+fdate(d)+'</b> a <b>'+fdate(h)+'</b> · Emitido el '+fdate(today())+' a las '+nowHM()+'</p></div></header>';
+    const P=provs(),Pusa=P.filter(p=>E.some(e=>e.provId===p.id));
+    b+='<nav class="indice"><b>Contenido</b><ol><li><a href="#s1">Recepción de materias primas</a></li><li><a href="#s2">Proveedores</a></li><li><a href="#s3">Producción y trazabilidad</a></li><li><a href="#s4">Control de temperaturas (día a día)</a></li><li><a href="#s5">Limpieza y desinfección</a></li><li><a href="#s6">Documentación sanitaria</a></li><li><a href="#s7">Productos e ingredientes</a></li><li><a href="#s8">Tabla de alérgenos</a></li>'+(conStats?'<li><a href="#s9">Estadísticas</a></li>':'')+'</ol></nav>';
     b+='<section><h2>Resumen</h2><table class="res"><tbody>'+
       '<tr><th>Entradas de materias primas</th><td>'+E.length+'</td></tr><tr><th>Tartas elaboradas</th><td>'+uds+' ('+T.length+(T.length===1?' registro)':' registros)')+'</td></tr>'+
       '<tr><th>Lecturas de temperatura</th><td>'+C.length+(malT.length?' · <span class="mal">'+malT.length+' fuera de rango, todas con acción correctora</span>':' · todas correctas')+'</td></tr>'+
-      '<tr><th>Días con limpieza registrada</th><td>'+new Set(L.map(x=>x.fecha)).size+'</td></tr><tr><th>Documentos</th><td>'+D.length+'</td></tr></tbody></table></section>';
-    b+='<section><h2>1. Recepción de materias primas</h2>'+tabla(['Fecha','Ingrediente','Marca / proveedor','Lote','Caducidad','Foto','Factura'],
-      E.map(e=>'<tr>'+td(fdate(e.fecha))+td(e.ing)+td(e.marca)+'<td class="lote">'+esc(e.lote||'en la foto')+'</td>'+td(e.cad?fdate(e.cad):'')+td(e.foto?'Sí':'No')+td(facturaDe(e.id)?'Sí':'No')+'</tr>'),'No hay entradas en este periodo.')+'</section>';
-    b+='<section><h2>2. Producción y trazabilidad</h2>'+tabla(['Fecha','Producto','Lote','Uds.','Consumo pref.','Lotes de los ingredientes'],
+      '<tr><th>Días con limpieza registrada</th><td>'+new Set(L.map(x=>x.fecha)).size+'</td></tr><tr><th>Documentos sanitarios</th><td>'+D.length+'</td></tr><tr><th>Proveedores</th><td>'+P.length+(Pusa.length?' ('+Pusa.length+' con entregas en el periodo)':'')+'</td></tr><tr><th>Productos y alérgenos</th><td>'+c.sabores.length+' productos con su ficha de alérgenos</td></tr></tbody></table></section>';
+    b+='<section id="s1"><h2>1. Recepción de materias primas</h2>'+tabla(['Fecha','Ingrediente','Proveedor','Marca','Lote','Caducidad','Foto del lote'],
+      E.map(e=>'<tr>'+td(fdate(e.fecha))+td(e.ing)+td(provNom(e))+td(e.marca)+'<td class="lote">'+esc(e.lote||'en la foto')+'</td>'+td(e.cad?fdate(e.cad):'')+td(e.foto?'Sí':'No')+'</tr>'),'No hay entradas en este periodo.')+'</section>';
+    const PE=p=>E.filter(e=>e.provId===p.id);
+    b+='<section id="s2"><h2>2. Proveedores</h2>'+tabla(['Proveedor','Qué suministra','CIF / NIF','Nº registro sanitario','Contacto','Dirección','En el periodo'],
+      P.map(p=>'<tr><td><b>'+esc(p.nombre)+'</b></td>'+td(p.suministra)+td(p.cif)+td(p.rgseaa)+'<td>'+esc([p.contacto,p.telefono,p.email].filter(Boolean).join(' · ')||'—')+'</td>'+td(p.direccion)+
+        '<td>'+PE(p).length+(PE(p).length===1?' entrada':' entradas')+(PE(p).length?'<br><span class="nota">'+esc([...new Set(PE(p).map(e=>e.ing))].join(', '))+'</span>':'')+'</td></tr>'),'No hay proveedores dados de alta en la app.')+
+      (P.some(p=>!p.rgseaa||!p.cif)?'<p class="nota">Si falta el CIF o el registro sanitario de algún proveedor, se puede completar en la app (Ajustes › Proveedores).</p>':'')+'</section>';
+    b+='<section id="s3"><h2>3. Producción y trazabilidad</h2>'+tabla(['Fecha','Producto','Lote','Uds.','Consumo pref.','Lotes de los ingredientes'],
       T.map(x=>'<tr>'+td(fdate(x.fecha))+td(x.sabor)+'<td class="lote">'+esc(x.lote||'—')+'</td>'+td(x.uds)+td(x.cad?fdate(x.cad):'')+'<td>'+x.ings.map(i=>esc(i.ing)+': <span class="lote">'+(i.lote?esc(i.lote):(i.eid?'en la foto':'<span class="mal">sin lote</span>'))+'</span>'+(i.marca?' ('+esc(i.marca)+')':'')).join('<br>')+
         ((x.horno||x.min)?'<br><span class="nota">Horno: '+esc(x.horno?x.horno+' °C':'')+(x.min?' · '+esc(x.min)+' min':'')+'</span>':'')+'</td></tr>'),'No hay tartas registradas en este periodo.')+'</section>';
-    b+='<section><h2>3. Control de temperaturas</h2><p>Rango permitido: '+c.camaras.map(x=>esc(x.nombre)+' de '+esc(x.min)+' a '+esc(x.max)+' °C').join(' · ')+'</p>'+
-      tabla(['Fecha','Hora','Cámara','Temperatura','Resultado','Acción correctora'],C.map(x=>'<tr>'+td(fdate(x.fecha))+td(x.hora)+td(x.camNombre)+td(x.v+' °C')+'<td class="'+(x.ok?'bien':'mal')+'">'+(x.ok?'Correcta':'Fuera de rango')+'</td>'+td(x.accion)+'</tr>'),'No hay lecturas en este periodo.')+
+    const todos=[];{let x=d;const f2=h<today()?h:today();while(x<=f2&&todos.length<800){todos.push(x);x=sumarDias(x,1)}}
+    const DS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'],dsem=s=>{const p=s.split('-');return DS[new Date(+p[0],+p[1]-1,+p[2]).getDay()]};
+    let filasT=[];todos.forEach(x=>{if(dsem(x)==='lunes'||x===d)filasT.push('<tr class="semana"><td colspan="'+(c.camaras.length+2)+'">Semana del '+fdate(lunesDe(x))+' al '+fdate(sumarDias(lunesDe(x),6))+'</td></tr>');
+      filasT.push('<tr><td><b>'+dsem(x)+'</b> '+fdate(x)+'</td>'+c.camaras.map(cam=>{const r=M.c[x+'_'+cam.id];
+        return r?'<td class="'+(r.ok?'bien':'mal')+'">Anotada a las <b>'+esc(r.hora||'—')+'</b><br>'+esc(r.v)+' °C · '+(r.ok?'Correcta':'Fuera de rango')+(r.accion?'<br><span class="nota">Acción: '+esc(r.accion)+'</span>':'')+(r.mod?'<br><span class="nota">Corregida el '+fmod(r.mod)+'</span>':'')+'</td>':'<td class="mal">Sin anotar</td>'}).join('')+
+        '<td>'+c.limpieza.filter((t2,j)=>M.l[x+'_'+j]).length+' de '+c.limpieza.length+'</td></tr>')});
+    b+='<section id="s4"><h2>4. Control de temperaturas (día a día)</h2><p>Rango permitido: '+c.camaras.map(x=>esc(x.nombre)+' de '+esc(x.min)+' a '+esc(x.max)+' °C').join(' · ')+'. Se indica la hora exacta a la que se anotó cada lectura.</p>'+
+      (todos.length?'<table class="dias"><thead><tr><th>Día</th>'+c.camaras.map(x=>'<th>'+esc(x.nombre)+'</th>').join('')+'<th>Limpieza</th></tr></thead><tbody>'+filasT.join('')+'</tbody></table>':'<p class="vacio">No hay lecturas en este periodo.</p>')+
+      '<h3>Todas las lecturas</h3>'+tabla(['Fecha','Hora','Cámara','Temperatura','Resultado','Acción correctora'],C.map(x=>'<tr>'+td(dsem(x.fecha)+' '+fdate(x.fecha))+td(x.hora)+td(x.camNombre)+td(x.v+' °C')+'<td class="'+(x.ok?'bien':'mal')+'">'+(x.ok?'Correcta':'Fuera de rango')+'</td>'+td(x.accion)+'</tr>'),'No hay lecturas en este periodo.')+
+      (malT.length?'<h3>Lecturas fuera de rango y acciones correctoras</h3>'+tabla(['Fecha','Hora','Cámara','Temperatura','Acción correctora'],malT.map(x=>'<tr>'+td(dsem(x.fecha)+' '+fdate(x.fecha))+td(x.hora)+td(x.camNombre)+'<td class="mal">'+esc(x.v)+' °C</td>'+td(x.accion)+'</tr>'),''):'')+
       (sinTemp.length?'<p class="aviso">Días sin lectura de temperatura: '+esc(lista(sinTemp))+'</p>':'')+'</section>';
     const porDia={};L.forEach(x=>{(porDia[x.fecha]=porDia[x.fecha]||[]).push(c.limpieza[x.i]||'Tarea '+(x.i+1))});
-    b+='<section><h2>4. Limpieza y desinfección</h2>'+tabla(['Fecha','Tareas realizadas'],Object.keys(porDia).sort().map(k=>'<tr>'+td(fdate(k))+td(porDia[k].join(', '))+'</tr>'),'No hay limpieza registrada en este periodo.')+
+    b+='<section id="s5"><h2>5. Limpieza y desinfección</h2>'+tabla(['Fecha','Tareas realizadas'],Object.keys(porDia).sort().map(k=>'<tr>'+td(fdate(k))+td(porDia[k].join(', '))+'</tr>'),'No hay limpieza registrada en este periodo.')+
       (sinLimp.length?'<p class="aviso">Días sin limpieza registrada: '+esc(lista(sinLimp))+'</p>':'')+'</section>';
-    b+='<section><h2>5. Documentación</h2>'+tabla(['Tipo','Proveedor / descripción','Fecha','Válido hasta','Estado'],D.map(x=>{const st=docEstado(x);
-      return '<tr>'+td(x.tipo)+td(x.nombre)+td(fdate(x.fecha))+td(x.vence?fdate(x.vence):'')+'<td class="'+(st==='bad'?'mal':'')+'">'+(st==='bad'?'Caducado':st==='warn'?'Caduca pronto':'En vigor')+'</td></tr>'}),'No hay documentos.')+'</section>';
-    b+='<section><h2>6. Productos elaborados e ingredientes</h2>'+tabla(['Producto','Ingredientes','Alérgenos','Consumo pref.','Conservación'],c.sabores.map(s=>'<tr>'+td(s.nombre)+td(s.ings.join(', '))+'<td><b>'+esc((s.alergenos||[]).join(', ')||'Sin indicar')+'</b></td>'+td(vidaDe(s)+' días')+td(s.conservacion||'0–4 °C')+'</tr>'),'No hay productos.')+'</section>';
+    b+='<section id="s6"><h2>6. Documentación sanitaria</h2>'+tabla(['Tipo','Emitido por','Descripción','Fecha','Válido hasta','Estado'],D.map(x=>{const st=docEstado(x);
+      return '<tr>'+td(x.tipo)+td(provNom(x))+td(x.nombre)+td(fdate(x.fecha))+td(x.vence?fdate(x.vence):'')+'<td class="'+(st==='bad'?'mal':'')+'">'+(st==='bad'?'Caducado':st==='warn'?'Caduca pronto':'En vigor')+'</td></tr>'}),'No hay documentos sanitarios (carnet, plagas, análisis…) en este periodo.')+'</section>';
+    b+='<section id="s7"><h2>7. Productos elaborados e ingredientes</h2>'+tabla(['Producto','Ingredientes','Alérgenos','Consumo pref.','Conservación'],c.sabores.map(s=>'<tr>'+td(s.nombre)+td(s.ings.join(', '))+'<td><b>'+esc((s.alergenos||[]).join(', ')||'Sin indicar')+'</b></td>'+td(vidaDe(s)+' días')+td(s.conservacion||'0–4 °C')+'</tr>'),'No hay productos.')+'</section>';
+    const sinAl=c.sabores.filter(s=>!(s.alergenos||[]).length);
+    b+='<section id="s8"><h2>8. Tabla de alérgenos</h2><p>Los 14 alérgenos de declaración obligatoria (Reglamento UE 1169/2011). «Sí» = el producto lo contiene.</p>'+
+      (c.sabores.length?'<div class="w">'+htmlAlergenos(c.sabores,true)+'</div>':'<p class="vacio">No hay productos.</p>')+
+      (sinAl.length?'<p class="aviso">Sin alérgenos indicados: '+esc(sinAl.map(s=>s.nombre).join(', '))+'</p>':'')+'</section>';
     if(conStats)b+=statsInforme(d,h);
-    const fotos=[];if(conFotos){E.forEach(e=>{if(F[e.id])fotos.push([F[e.id],'Lote de '+e.ing+' · '+(e.lote||'')+' · '+fdate(e.fecha)]);const f=facturaDe(e.id);if(f&&F['doc_'+f.id])fotos.push([F['doc_'+f.id],'Factura · '+(f.nombre||e.ing)+' · '+fdate(f.fecha)])});
-      D.forEach(x=>{if(F['doc_'+x.id]&&!fotos.some(p=>p[0]===F['doc_'+x.id]))fotos.push([F['doc_'+x.id],x.tipo+(x.nombre?' · '+x.nombre:'')+' · '+fdate(x.fecha)])})}
+    const fotos=[];if(conFotos){E.forEach(e=>{if(F[e.id])fotos.push([F[e.id],'Lote de '+e.ing+' · '+(e.lote||'')+(provNom(e)?' · '+provNom(e):'')+' · '+fdate(e.fecha)])});
+      D.forEach(x=>{if(F['doc_'+x.id]&&!fotos.some(p=>p[0]===F['doc_'+x.id]))fotos.push([F['doc_'+x.id],[x.tipo,provNom(x),x.nombre].filter(Boolean).join(' · ')+' · '+fdate(x.fecha)])})}
     if(fotos.length)b+='<section class="anexo"><h2>Anexo: fotos</h2><div class="fotos">'+fotos.map(p=>'<figure><img src="'+p[0]+'" alt=""><figcaption>'+esc(p[1])+'</figcaption></figure>').join('')+'</div></section>';
     b+='<footer>Documento generado con la app del obrador '+esc(c.negocio||'Puro Umami')+' el '+fdate(today())+' a las '+nowHM()+'.</footer>';
     const css='body{margin:0;background:#FFFFEE;color:#43302E;font:15px/1.45 "Avenir Next",Avenir,"Nunito Sans",-apple-system,"Segoe UI",Arial,sans-serif}'+
@@ -850,6 +911,9 @@ function crearInforme(d,h,conFotos,conStats){
       '.nota{color:#6b5a50;font-size:12.5px}.aviso{background:#FCF2C7;border-left:4px solid #84592B;padding:8px 10px;margin:10px 0}.vacio{color:#6b5a50;font-style:italic}'+
       '.fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}figure{margin:0;background:#fff;border:1px solid #E2D9BC;padding:6px;break-inside:avoid}'+
       'figure img{width:100%;height:auto;display:block}figcaption{font-size:12px;margin-top:4px}footer{margin-top:32px;font-size:12px;color:#6b5a50;border-top:1px solid #E2D9BC;padding-top:10px}'+
+      '.indice{background:#fff;border:1px solid #E2D9BC;padding:10px 14px;margin:14px 0}.indice ol{margin:6px 0 0;padding-left:22px;columns:2}.indice a{color:#84592B}'+
+      'h3{font-size:16px;margin:18px 0 8px}.dias td{font-size:13px}tr.semana td{background:#C2C395;font-weight:700;color:#43302E}.w{overflow-x:auto}.al-t th{font-size:11.5px}.al-t td{text-align:center}.al-t td:first-child{text-align:left;font-weight:700}.al-si{background:#FCF2C7;font-weight:700;color:#A3392B}'+
+      '@media(max-width:600px){.indice ol{columns:1}}'+
       '@media print{body{background:#fff}.doc{padding:0}section{break-inside:auto}tr,figure{break-inside:avoid}h2{break-after:avoid}.anexo{break-before:page}}';
     const html='<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
       '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'">'+
@@ -893,8 +957,8 @@ function statsSheet(){let r='mes';
    '<div class="chips" style="margin-top:12px">'+[['mes','Este mes'],['pasado','Mes pasado'],['3m','3 meses'],['anio','Este año'],['todo','Todo']].map(x=>'<button type="button" class="btn sm" data-sr="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'+
    '<div class="small muted" id="st-p" style="margin-top:8px"></div><div id="st-b"></div>');
   $$('[data-sr]').forEach(b=>b.onclick=()=>{r=b.dataset.sr;pintar()});pintar()}
-function statsInforme(d,h){const s=datosStats(d,h);if(!s.total)return '<section><h2>7. Estadísticas de producción</h2><p class="vacio">No hay tartas en este periodo.</p></section>';
-  return '<section><h2>7. Estadísticas de producción</h2><table class="res"><tbody><tr><th>Tartas elaboradas</th><td>'+s.total+'</td></tr><tr><th>Días de obrador</th><td>'+s.dias+'</td></tr><tr><th>Media por día</th><td>'+fmt1(s.media)+'</td></tr></tbody></table>'+
+function statsInforme(d,h){const s=datosStats(d,h);if(!s.total)return '<section id="s9"><h2>9. Estadísticas de producción</h2><p class="vacio">No hay tartas en este periodo.</p></section>';
+  return '<section id="s9"><h2>9. Estadísticas de producción</h2><table class="res"><tbody><tr><th>Tartas elaboradas</th><td>'+s.total+'</td></tr><tr><th>Días de obrador</th><td>'+s.dias+'</td></tr><tr><th>Media por día</th><td>'+fmt1(s.media)+'</td></tr></tbody></table>'+
    '<table style="margin-top:10px"><thead><tr><th>Sabor</th><th>Tartas</th><th>%</th></tr></thead><tbody>'+s.porSabor.map(x=>'<tr><td>'+esc(x.k)+'</td><td>'+x.v+'</td><td>'+Math.round(x.v/s.total*100)+'%</td></tr>').join('')+'</tbody></table></section>'}
 
 /* ===== Alérgenos, lote propio y fichas técnicas ===== */
@@ -944,21 +1008,32 @@ $('#fi-in').addEventListener('change',function(){const f=this.files&&this.files[
   r.readAsText(f)});
 
 /* ===== Sincronización automática con tu propia base de datos (Supabase) =====
-   Solo tu usuario puede leer y escribir tus datos (reglas de seguridad en la base de datos). */
+   Solo tus aparatos aprobados (administrador) y tus invitados pueden leer y escribir:
+   lo exigen las reglas de seguridad de la base de datos, no solo la app. */
 const SYK='os_sync',OUTK='os_out';
 let SY=null;try{SY=JSON.parse(localStorage.getItem(SYK)||'null')}catch(e){}
 let syncing=false,pushT=null,syncRenderPend=false;
+const ES_INV=()=>!!(SY&&SY.rol==='invitado');
+const ES_ADMIN_OK=()=>!!(SY&&SY.rol!=='invitado'&&SY.estado==='aprobado');
+function hexAl(n){return Array.from(crypto.getRandomValues(new Uint8Array(n)),b=>b.toString(16).padStart(2,'0')).join('')}
+function nuevoDisp(){return {id:hexAl(16),s:hexAl(32)}}
+/* identidad de ESTE aparato como administrador: se guarda aparte para no tener que volver a aprobarlo si desconectas y vuelves a conectar */
+function dispAdmin(url,nuevo){let o=null;try{o=JSON.parse(localStorage.getItem('os_disp')||'null')}catch(e){}
+  if(!nuevo&&o&&o.url===url&&o.id&&o.s)return {id:o.id,s:o.s};const d=nuevoDisp();try{localStorage.setItem('os_disp',JSON.stringify({url:url,id:d.id,s:d.s}))}catch(e){}return d}
+function nombreAparato(){const u=navigator.userAgent||'';const t=/iPad/.test(u)||(/Macintosh/.test(u)&&navigator.maxTouchPoints>1)?'iPad':/iPhone/.test(u)?'iPhone':/Macintosh/.test(u)?'Mac':/Android/.test(u)?'Android':/Windows/.test(u)?'Ordenador Windows':'Otro aparato';
+  return t+' · '+fdate(today())}
 function sySave(){try{SY?localStorage.setItem(SYK,JSON.stringify(SY)):localStorage.removeItem(SYK)}catch(e){}}
 function outLeer(){try{return JSON.parse(localStorage.getItem(OUTK)||'{}')}catch(e){return {}}}
 function outGuardar(o){try{localStorage.setItem(OUTK,JSON.stringify(o))}catch(e){}}
-function syncMarca(clave,tipo,borrado){if(!SY)return;const o=outLeer();o[tipo+'|'+clave]=[borrado?1:0,Date.now()+Math.random()];outGuardar(o);clearTimeout(pushT);pushT=setTimeout(()=>sincronizar(),1500)}
-function syncTodo(sinFotos){if(!SY)return Promise.resolve();const o=outLeer(),n=Date.now();o['r|cfg']=[0,n];
+function syncMarca(clave,tipo,borrado){if(!SY||(ES_INV()&&clave==='cfg'))return;const o=outLeer();o[tipo+'|'+clave]=[borrado?1:0,Date.now()+Math.random()];outGuardar(o);clearTimeout(pushT);pushT=setTimeout(()=>sincronizar(),1500)}
+function syncTodo(sinFotos){if(!SY)return Promise.resolve();const o=outLeer(),n=Date.now();if(!ES_INV())o['r|cfg']=[0,n];
   ['e','t','c','l','d'].forEach(k=>Object.keys(M[k]).forEach(id=>{o['r|'+k+':'+id]=[0,n+Math.random()]}));
   return (sinFotos?Promise.resolve({}):readAll('fotos')).then(f=>{if(!sinFotos)Object.keys(f).concat(Object.keys(fotoMem)).forEach(k=>{o['f|'+k]=[0,n+Math.random()]});outGuardar(o);clearTimeout(pushT);pushT=setTimeout(()=>sincronizar(),500)})}
 function urlValida(u){return /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(u)||/^http:\/\/localhost:\d+$/.test(u)}
-function api(path,opt){opt=opt||{};const h=Object.assign({apikey:SY.key,'Content-Type':'application/json'},opt.headers||{});if(SY.access)h.Authorization='Bearer '+SY.access;
+function api(path,opt){opt=opt||{};const h=Object.assign({apikey:SY.key,'Content-Type':'application/json'},opt.headers||{});if(SY.access&&!ES_INV())h.Authorization='Bearer '+SY.access;
+  if(SY.disp)h['x-dispositivo']=SY.disp.id+'.'+SY.disp.s;
   return fetch(SY.url+path,{method:opt.method||'GET',headers:h,body:opt.body?JSON.stringify(opt.body):undefined,cache:'no-store'}).then(r=>{
-    if(r.status===401&&!opt.retry)return refrescar().then(()=>api(path,Object.assign({},opt,{retry:true})));
+    if(r.status===401&&!opt.retry&&!ES_INV())return refrescar().then(()=>api(path,Object.assign({},opt,{retry:true})));
     if(!r.ok)return r.text().then(t=>{const e=new Error(t||String(r.status));e.status=r.status;throw e});
     return r.status===204?null:r.text().then(t=>t?JSON.parse(t):null)})}
 function refrescar(){return fetch(SY.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:SY.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:SY.refresh})})
@@ -968,7 +1043,13 @@ function syncLogin(url,key,email,pass){url=url.trim().replace(/\/+$/,'');key=key
   if(!urlValida(url))return Promise.reject(new Error('La dirección debe ser como https://xxxx.supabase.co'));
   return fetch(url+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:key,'Content-Type':'application/json'},body:JSON.stringify({email:email.trim(),password:pass})})
    .then(r=>r.json().catch(()=>({})).then(j=>{if(!r.ok)throw new Error(r.status===400?'Email o contraseña incorrectos':'No se pudo conectar ('+r.status+')');return j}))
-   .then(j=>{SY={url:url,key:key,email:email.trim(),access:j.access_token,refresh:j.refresh_token,lastR:'',lastF:'',ok:0,err:''};sySave()})}
+   .then(j=>{
+     SY={url:url,key:key,email:email.trim(),access:j.access_token,refresh:j.refresh_token,rol:'admin',disp:dispAdmin(url),estado:'',codigo:'',lastR:'',lastF:'',ok:0,err:''};sySave()})}
+const rpc=(fn,args)=>api('/rest/v1/rpc/'+fn,{method:'POST',body:args||{}});
+/* El aparato se presenta a la base de datos: aprobado, pendiente (con código) o rechazado */
+function registrarAparato(){return rpc('disp_registrar',{p_id:SY.disp.id,p_secreto:SY.disp.s,p_nombre:nombreAparato()}).then(r=>{
+  if(!SY)return r;if(r&&r.estado==='rechazado'){SY.disp=dispAdmin(SY.url,true);sySave();return registrarAparato()}
+  SY.estado=r&&r.estado||'';SY.codigo=r&&r.codigo||'';sySave();return r})}
 /* ---- limpiar lo que llega de internet antes de guardarlo ---- */
 const F8S=/^\d{4}-\d{2}-\d{2}$/;
 function sanear(k,d){if(!d||typeof d!=='object'||Array.isArray(d))return null;
@@ -982,13 +1063,14 @@ function sanear(k,d){if(!d||typeof d!=='object'||Array.isArray(d))return null;
 function push(){const o=outLeer(),ks=Object.keys(o);if(!ks.length)return Promise.resolve();
   const quitar=(k,v)=>{const oo=outLeer();if(oo[k]&&oo[k][1]===v[1])delete oo[k];outGuardar(oo)};
   const R=ks.filter(k=>k[0]==='r').map(k=>{const c=k.slice(2);let d;if(c==='cfg')d=M.cfg;else{const i=c.indexOf(':');d=(M[c.slice(0,i)]||{})[c.slice(i+1)]}
-    const b=o[k][0]===1||d===undefined;return {k:k,v:o[k],fila:{clave:c,datos:b?null:d,borrado:b}}});
+    const b=o[k][0]===1||d===undefined;const fila={clave:c,datos:b?null:d,borrado:b};if(ES_INV())fila.user_id=SY.dueno;return {k:k,v:o[k],fila:fila}});
+  if(ES_INV()){const oo=outLeer();let cambio=false;R.filter(x=>x.fila.clave==='cfg').forEach(x=>{delete oo[x.k];cambio=true});if(cambio)outGuardar(oo);for(let i=R.length-1;i>=0;i--)if(R[i].fila.clave==='cfg')R.splice(i,1)}
   let p=Promise.resolve();
   for(let i=0;i<R.length;i+=200){const lote=R.slice(i,i+200);
     p=p.then(()=>api('/rest/v1/registros?on_conflict=user_id,clave',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:lote.map(x=>x.fila)}).then(()=>lote.forEach(x=>quitar(x.k,x.v))))}
   ks.filter(k=>k[0]==='f').forEach(k=>{const c=k.slice(2),v=o[k];
     p=p.then(()=>getFoto(c)).then(d=>{const b=v[0]===1||!d;
-      return api('/rest/v1/fotos?on_conflict=user_id,clave',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:[{clave:c,datos:b?null:d,borrado:b}]}).then(()=>quitar(k,v))})});
+      return api('/rest/v1/fotos?on_conflict=user_id,clave',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:[Object.assign({clave:c,datos:b?null:d,borrado:b},ES_INV()?{user_id:SY.dueno}:{})]}).then(()=>quitar(k,v))})});
   return p}
 /* ---- bajar cambios ---- */
 function aplicar(tabla,rows,vistos){const pend=outLeer(),ops=[];let n=0;
@@ -1009,44 +1091,467 @@ function pull(tabla,campo,vistos){const desdeTs=SY[campo]?new Date(new Date(SY[c
     .then(rows=>{rows=rows||[];rows.forEach(r=>{if(r.actualizado>max)max=r.actualizado});
       return aplicar(tabla,rows,vistos).then(n=>{total+=n;if(rows.length===200){off+=200;return pagina()}if(max){SY[campo]=max;sySave()}return total})});
   return pagina()}
+function comprobarAcceso(){
+  if(ES_INV())return rpc('invitado_estado',{p_id:SY.disp.id,p_secreto:SY.disp.s}).then(r=>{if(!r||!r.activo){accesoQuitado();throw Object.assign(new Error('fuera'),{fuera:true})}});
+  return registrarAparato().then(r=>{if(SY.estado!=='aprobado'){pintarSync();throw Object.assign(new Error('pendiente'),{pendiente:true})}
+    return api('/rest/v1/dispositivos?select=id,nombre,aprobado,rol,creado,visto&order=creado.asc').then(l=>{SY.lista=l||[];sySave();revisarAparatos()}).catch(()=>{})})}
 function sincronizar(manual){if(!SY||syncing)return Promise.resolve();if(!navigator.onLine){pintarSync();return Promise.resolve()}
   syncing=true;pintarSync();
-  return push().then(()=>pull('registros','lastR')).then(a=>pull('fotos','lastF').then(b=>a+b)).then(n=>{SY.ok=Date.now();SY.err='';sySave();
+  return comprobarAcceso().then(()=>push()).then(()=>pull('registros','lastR')).then(a=>pull('fotos','lastF').then(b=>a+b)).then(n=>{SY.ok=Date.now();SY.err='';sySave();
       if(n)renderSeguro();if(manual)toast(n?'Sincronizado: '+n+' cambios':'Todo al día')})
-    .catch(e=>{console.error(e);if(SY){SY.err=e&&e.status===401?'sesion':'red';sySave()}if(manual)toast(SY&&SY.err==='sesion'?'Tienes que volver a conectar':'No se pudo sincronizar. Revisa la conexión')})
+    .catch(e=>{if(e&&(e.pendiente||e.fuera)){if(manual&&e.pendiente)toast('Este aparato aún no está aprobado');return}
+      console.error(e);if(SY){SY.err=e&&e.status===401?'sesion':'red';sySave()}if(manual)toast(SY&&SY.err==='sesion'?'Tienes que volver a conectar':'No se pudo sincronizar. Revisa la conexión')})
     .then(()=>{syncing=false;pintarSync();updateBadges()})}
 function renderSeguro(){const a=document.activeElement;
   if(a&&$('#view').contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)){if(!syncRenderPend){syncRenderPend=true;a.addEventListener('blur',()=>{syncRenderPend=false;render()},{once:true})}return}render()}
 function conectarPrimeraVez(){const vistos=new Set();
   return pull('registros','lastR',vistos).then(()=>pull('fotos','lastF',vistos)).then(()=>{const o=outLeer(),n=Date.now();
-    if(!vistos.has('r|cfg'))o['r|cfg']=[0,n];
+    if(!vistos.has('r|cfg')&&!ES_INV())o['r|cfg']=[0,n];
     ['e','t','c','l','d'].forEach(k=>Object.keys(M[k]).forEach(id=>{if(!vistos.has('r|'+k+':'+id))o['r|'+k+':'+id]=[0,n+Math.random()]}));
     return readAll('fotos').then(f=>{Object.keys(f).forEach(k=>{if(!vistos.has('f|'+k))o['f|'+k]=[0,n+Math.random()]});outGuardar(o)})})
    .then(()=>{render();return sincronizar()})}
 setInterval(()=>{if(SY&&document.visibilityState==='visible')sincronizar()},20000);
+setInterval(()=>{if(SY&&!ES_INV()&&SY.estado==='pendiente'&&document.visibilityState==='visible')esperarAprobacion()},5000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')sincronizar()});
 window.addEventListener('online',()=>sincronizar());
 /* ---- pantalla en Ajustes ---- */
 function textoEstado(){if(!SY)return '';if(syncing)return 'Sincronizando…';if(!navigator.onLine)return 'Sin internet. Se sincronizará al volver la conexión.';
   const pend=Object.keys(outLeer()).length;if(SY.err==='sesion')return 'Tienes que volver a conectar.';if(SY.err==='red')return 'No se pudo sincronizar la última vez'+(pend?' · '+pend+' cambios pendientes':'')+'.';
   if(!SY.ok)return 'Conectado.';const d=new Date(SY.ok);return 'Sincronizado a las '+pad(d.getHours())+':'+pad(d.getMinutes())+(pend?' · '+pend+' cambios pendientes':'');}
+/* pintarSync y syncAviso están en a12.js (aparatos e invitados) */
+
+const esInv=()=>typeof ES_INV==='function'&&ES_INV();
+/* ===== Proveedores ===== */
+const provs=()=>(M.cfg&&Array.isArray(M.cfg.proveedores)?M.cfg.proveedores:[]).slice().sort((a,b)=>norm(a.nombre)<norm(b.nombre)?-1:1);
+const provDe=id=>id?provs().find(p=>p.id===id)||null:null;
+const provNom=r=>{const p=provDe(r&&r.provId);return p?p.nombre:(r&&r.provNombre)||''};
+const PROV_CAMPOS=[['nombre','Nombre o empresa','Ej. Quesos del Norte S.L.'],['suministra','Qué te trae','Ej. Queso crema, nata'],['cif','CIF / NIF',''],
+  ['rgseaa','Nº registro sanitario (RGSEAA)',''],['telefono','Teléfono',''],['email','Email',''],['contacto','Persona de contacto',''],['direccion','Dirección',''],['notas','Notas','Ej. Reparte martes y viernes']];
+function guardarProvs(lista){return saveCfg(Object.assign({},M.cfg,{proveedores:lista}))}
+function provSelect(id,sel){const ps=provs();
+  return '<select id="'+id+'"><option value="">'+(ps.length?'— Elige proveedor —':'— Sin proveedores todavía —')+'</option>'+
+   ps.map(p=>'<option value="'+esc(p.id)+'"'+(p.id===sel?' selected':'')+'>'+esc(p.nombre)+'</option>').join('')+
+   (esInv()?'':'<option value="__nuevo">+ Añadir proveedor nuevo…</option>')+'</select>'+
+   '<div id="'+id+'-nw" hidden class="provnew"><label for="'+id+'-nn" style="margin-top:8px">Nombre del proveedor nuevo</label><input id="'+id+'-nn" placeholder="Ej. Lácteos del Norte">'+
+   '<label for="'+id+'-nt">Teléfono <span style="font-weight:400">(opcional)</span></label><input id="'+id+'-nt" inputmode="tel">'+
+   '<div class="hint">El resto de datos (CIF, registro sanitario…) los puedes poner luego en Ajustes › Proveedores.</div></div>'}
+function montarProvSelect(id){const s=$('#'+id);if(!s)return;s.onchange=()=>{$('#'+id+'-nw').hidden=s.value!=='__nuevo';if(s.value==='__nuevo')$('#'+id+'-nn').focus()}}
+/* Devuelve el proveedor elegido (creándolo si es nuevo). null si no hay; false si falta el nombre del nuevo. */
+function leerProvSelect(id){const s=$('#'+id);if(!s||!s.value)return Promise.resolve(null);
+  if(s.value!=='__nuevo')return Promise.resolve(provDe(s.value));
+  const n=$('#'+id+'-nn').value.trim();if(!n){toast('Escribe el nombre del proveedor nuevo');$('#'+id+'-nn').focus();return Promise.resolve(false)}
+  const ya=provs().find(p=>norm(p.nombre)===norm(n));if(ya)return Promise.resolve(ya);
+  const p={id:'p'+uid(),nombre:n,telefono:$('#'+id+'-nt').value.trim(),ts:Date.now()};
+  return guardarProvs((M.cfg.proveedores||[]).concat([p])).then(()=>p)}
+/* Si al leer la foto sale un nombre, elige el proveedor que coincida. */
+function elegirProvPorNombre(id,nombre){const s=$('#'+id),n=norm(nombre);if(!s||!n||s.value)return;
+  const p=provs().find(x=>{const m=norm(x.nombre);return m&&(n.includes(m)||m.includes(n))});if(p){s.value=p.id;s.onchange&&s.onchange()}}
+function formProveedor(pid,volver){const p=provDe(pid)||{};
+  sheet('<h2>'+(p.id?'Editar proveedor':'Nuevo proveedor')+'</h2>'+
+   PROV_CAMPOS.map(([k,l,ph],i)=>'<label for="pv-'+k+'"'+(i?'':' style="margin-top:0"')+'>'+l+'</label>'+(k==='notas'||k==='direccion'?'<textarea id="pv-'+k+'" rows="2" placeholder="'+esc(ph)+'">'+esc(p[k]||'')+'</textarea>':
+     '<input id="pv-'+k+'" value="'+esc(p[k]||'')+'" placeholder="'+esc(ph)+'"'+(k==='telefono'?' inputmode="tel"':k==='email'?' inputmode="email" autocapitalize="off"':'')+'>')).join('')+
+   '<button class="btn pri big" id="pv-save">Guardar</button>'+(p.id?'<button class="btn danger full" id="pv-del" style="margin-top:10px">Borrar proveedor</button>':''));
+  $('#pv-save').onclick=()=>{const o={id:p.id||'p'+uid(),ts:Date.now()};PROV_CAMPOS.forEach(([k])=>{o[k]=$('#pv-'+k).value.trim()});
+    if(!o.nombre){toast('Escribe el nombre del proveedor');$('#pv-nombre').focus();return}
+    const otro=provs().find(x=>x.id!==o.id&&norm(x.nombre)===norm(o.nombre));if(otro){toast('Ya tienes un proveedor con ese nombre');return}
+    const l=(M.cfg.proveedores||[]).filter(x=>x.id!==o.id).concat([o]);
+    guardarProvs(l).then(()=>{toast('Proveedor guardado');if(volver)volver(o);else verProveedor(o.id)}).catch(()=>{})};
+  if(p.id)confirmBtn($('#pv-del'),'Pulsa otra vez para borrar',()=>{guardarProvs((M.cfg.proveedores||[]).filter(x=>x.id!==p.id)).then(()=>{toast('Proveedor borrado');ajustes();abrirSec('aj-prov')}).catch(()=>{})})}
+function verProveedor(pid){const p=provDe(pid);if(!p)return;
+  const fac=docsOrden().filter(d=>d.provId===p.id),ent=Object.values(M.e).filter(e=>e.provId===p.id).sort((a,b)=>a.fecha<b.fecha?1:-1);
+  const fila=(k,v)=>v?'<span class="k">'+k+'</span><span>'+v+'</span>':'';
+  sheet('<h2>'+esc(p.nombre)+'</h2><div class="lots">'+fila('Te trae',esc(p.suministra))+fila('CIF / NIF',esc(p.cif))+fila('Reg. sanitario',esc(p.rgseaa))+
+   fila('Teléfono',p.telefono?'<a href="tel:'+esc(p.telefono.replace(/[^\d+]/g,''))+'">'+esc(p.telefono)+'</a>':'')+
+   fila('Email',p.email?'<a href="mailto:'+esc(p.email)+'">'+esc(p.email)+'</a>':'')+fila('Contacto',esc(p.contacto))+fila('Dirección',esc(p.direccion))+fila('Notas',esc(p.notas))+'</div>'+
+   (esInv()?'':'<button class="btn full" id="pv-ed" style="margin-top:14px">Editar datos</button>')+
+   '<button class="btn pri full" id="pv-fac" style="margin-top:10px">+ Foto de factura de '+esc(p.nombre)+'</button>'+
+   '<h3>Facturas y papeles ('+fac.length+')</h3>'+(fac.length?fac.map(cardDoc).join(''):'<div class="small muted">Todavía ninguna.</div>')+
+   '<h3>Últimas entradas</h3>'+(ent.length?ent.slice(0,15).map(e=>'<div class="small">'+fdate(e.fecha)+' · '+esc(e.ing)+' · lote <span class="code">'+esc(e.lote||'en la foto')+'</span></div>').join(''):'<div class="small muted">Todavía ninguna.</div>'));
+  fillThumbs($('#sheet'));if($('#pv-ed'))$('#pv-ed').onclick=()=>formProveedor(p.id);$('#pv-fac').onclick=()=>formDoc('Factura',p.id)}
+function abrirSec(id){const d=$('#'+id);if(d){d.open=true;setTimeout(()=>d.scrollIntoView({block:'start'}),30)}}
+function secProveedores(){const ps=provs();
+  return (ps.length?ps.map(p=>'<div class="aj-row"><div><b>'+esc(p.nombre)+'</b><div class="small muted">'+esc([p.suministra,p.telefono].filter(Boolean).join(' · ')||'Sin datos todavía')+'</div></div><button type="button" class="btn sm" data-ajprov="'+esc(p.id)+'">Ver</button></div>').join(''):
+   '<div class="small muted">Aún no tienes proveedores. Añádelos y luego los eliges al apuntar una entrada o una factura.</div>')+
+   '<button type="button" class="btn full" id="aj-pnew" style="margin-top:12px">+ Añadir proveedor</button>'}
+function montarProveedores(){$$('[data-ajprov]').forEach(b=>b.onclick=()=>verProveedor(b.dataset.ajprov));
+  if($('#aj-pnew'))$('#aj-pnew').onclick=()=>formProveedor(null)}
+
+/* ===== Registro semanal de temperaturas ===== */
+const DIASEM=['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
+function lunesDe(s){const p=s.split('-'),d=new Date(+p[0],+p[1]-1,+p[2]);const w=(d.getDay()+6)%7;return sumarDias(s,-w)}
+/* ===== Registro mensual: un desplegable por mes y, dentro, cada día ===== */
+let mesSel=null;
+const finMes=k=>{const p=k.split('-');return k+'-'+pad(new Date(+p[0],+p[1],0).getDate())};
+function mesesReg(){const t=today(),y=+t.slice(0,4);
+  const fs=[].concat(Object.values(M.c),Object.values(M.e),Object.values(M.t),Object.values(M.l)).map(r=>r&&r.fecha).filter(Boolean).sort();
+  const y0=fs.length?Math.min(+fs[0].slice(0,4),y):y,A=[];
+  for(let a=y;a>=y0;a--){const L=[];for(let m=12;m>=1;m--)L.push(a+'-'+pad(m));A.push([a,L])}return A}
+function htmlDia(f){const c=M.cfg,t=today(),fut=f>t,p=f.split('-'),ds=DIASEM[(new Date(+p[0],+p[1]-1,+p[2]).getDay()+6)%7];
+  const rs=c.camaras.map(x=>({cam:x,r:M.c[f+'_'+x.id]})),hay=rs.filter(o=>o.r),mal=hay.some(o=>!o.r.ok);
+  const E=Object.values(M.e).filter(e=>e.fecha===f).sort((a,b)=>(a.ts||0)-(b.ts||0)),T=Object.values(M.t).filter(x=>x.fecha===f);
+  const limp=c.limpieza.filter((x,j)=>M.l[f+'_'+j]).length,uds=T.reduce((a,x)=>a+(+x.uds||0),0);
+  const res=[];if(hay.length)res.push(hay.map(o=>o.r.v+' °C').join(' / '));if(E.length)res.push(E.length+(E.length===1?' entrada':' entradas'));if(uds)res.push(uds+' tartas');
+  const est=fut?'<span class="muted small">—</span>':'<span class="small '+(!hay.length?'bad':mal?'bad':'okc')+'">'+(hay.length?'':'Sin temperatura')+(res.length?(hay.length?'':' · ')+esc(res.join(' · ')):'')+'</span>';
+  let b='';
+  if(fut)b='<div class="small muted" style="padding:4px 0 10px">Aún no ha llegado.</div>';
+  else{
+    b+='<div class="dsec">Temperatura</div>'+rs.map(o=>'<div class="card"><b>'+esc(o.cam.nombre)+'</b>'+
+      (o.r?'<div class="small">Anotada a las <b>'+esc(o.r.hora||'—')+'</b> · <b>'+esc(o.r.v)+' °C</b> · <span class="'+(o.r.ok?'okc':'bad')+'">'+(o.r.ok?'Correcta':'Fuera de rango')+'</span></div>'+
+        (o.r.accion?'<div class="small">Qué se hizo: '+esc(o.r.accion)+'</div>':'')+(o.r.mod?'<div class="small muted">Corregida el '+fmod(o.r.mod)+'</div>':''):'<div class="small bad">No se anotó la temperatura.</div>')+
+      '<button type="button" class="btn sm" style="margin-top:8px" data-temp="'+esc(o.cam.id)+'" data-f="'+f+'">'+(o.r?'Corregir o borrar':'Anotar ahora')+'</button></div>').join('');
+    b+='<div class="dsec">Pedidos que entraron</div>'+(E.length?E.map(e=>'<button class="card" data-act="ver-entrada" data-id="'+esc(e.id)+'"><b>'+esc(e.ing)+'</b>'+
+      '<div class="small">Proveedor: <b>'+esc(provNom(e)||'—')+'</b>'+(e.marca?' · Marca: '+esc(e.marca):'')+'</div>'+
+      '<div class="small">Lote <span class="code">'+esc(e.lote||'en la foto')+'</span>'+(e.cad?' · cad. '+fdate(e.cad):'')+'</div></button>').join(''):'<div class="small muted" style="margin-bottom:8px">No entró nada este día.</div>');
+    b+='<div class="dsec">Tartas hechas</div>'+(T.length?T.map(x=>'<button class="card" data-act="ver-tarta" data-id="'+esc(x.id)+'"><b>'+esc(x.sabor)+'</b> · '+x.uds+' ud.'+(x.lote?' · lote <span class="code">'+esc(x.lote)+'</span>':'')+'</button>').join(''):'<div class="small muted" style="margin-bottom:8px">Ninguna.</div>');
+    b+=limpiezaDia(f)}
+  return '<details class="dia mesd" data-f="'+f+'"'+(f===t?' open':'')+'><summary><span>'+ds+' '+(+p[2])+'</span>'+est+'</summary>'+b+'</details>'}
+function htmlMes(k){const t=today(),fin=finMes(k);let h='',f=k+'-01';
+  if(f>t)return '<div class="empty" style="margin-top:4px"><b>'+esc(monthName(k))+'</b>Este mes aún no ha llegado.</div>';
+  const dias=[];while(f<=fin){dias.push(f);f=sumarDias(f,1)}
+  const pas=dias.filter(x=>x<=t),sinT=pas.filter(x=>M.cfg.camaras.some(cam=>!M.c[x+'_'+cam.id])).length,nE=Object.values(M.e).filter(e=>e.fecha.slice(0,7)===k).length;
+  h+='<div class="small muted" style="margin:0 2px 8px">'+(sinT?'<span class="bad">'+sinT+(sinT===1?' día':' días')+' sin temperatura</span>':'<span class="okc">Temperatura anotada todos los días</span>')+' · '+nE+(nE===1?' entrada':' entradas')+'</div>';
+  return h+pas.reverse().map(htmlDia).join('')}
+function bloqueMes(){const A=mesesReg(),t=today();if(!mesSel)mesSel=t.slice(0,7);
+  return '<h3>Registro por días</h3><div class="small muted" style="margin-bottom:8px">Elige el mes y toca un día: temperatura y hora, lo que entró (proveedor, ingrediente y lote) y las tartas hechas.</div>'+
+   '<label for="mes" class="sr">Mes</label><select id="mes">'+A.map(([a,L])=>'<optgroup label="'+a+'">'+L.map(k=>'<option value="'+k+'"'+(k===mesSel?' selected':'')+'>'+esc(monthName(k))+(k>t.slice(0,7)?' (aún no)':'')+'</option>').join('')+'</optgroup>').join('')+'</select>'+
+   '<div id="mes-dias" style="margin-top:10px">'+htmlMes(mesSel)+'</div>'}
+function montarMes(){const s=$('#mes');if(s)s.onchange=()=>{mesSel=s.value;$('#mes-dias').innerHTML=htmlMes(mesSel)}}
+
+/* ===== Corregir lo que está mal ===== */
+const fmod=ts=>{const d=new Date(ts);return fdate(iso(d))+' a las '+pad(d.getHours())+':'+pad(d.getMinutes())};
+function formEditarTarta(id){const t=M.t[id];if(!t)return;const s=M.cfg.sabores.find(x=>x.id===t.saborId)||{ings:t.ings.map(i=>i.ing)};
+  let uds=+t.uds||1;const sel={};t.ings.forEach(i=>{if(i.eid)sel[i.ing]=i.eid});
+  sheet('<h2>Corregir: '+esc(t.sabor)+'</h2>'+
+   '<div class="two"><div><label for="et-f">Día</label><input id="et-f" type="date" value="'+esc(t.fecha)+'"></div>'+
+   '<div><label>Cuántas</label><div class="step"><button type="button" id="et-m" aria-label="Menos">−</button><output id="et-u">'+uds+'</output><button type="button" id="et-p" aria-label="Más">+</button></div></div></div>'+
+   '<h3>Lotes de los ingredientes</h3><div id="et-ings"></div>'+
+   '<label for="et-n">Notas</label><input id="et-n" value="'+esc(t.nota||'')+'">'+
+   '<button class="btn pri big" id="et-save">Guardar cambios</button><button class="btn full" id="et-no" style="margin-top:10px">Cancelar</button>');
+  const ingsDe=()=>t.ings.map(i=>i.ing);
+  function dibujar(){$('#et-ings').innerHTML=ingsDe().map(ing=>{const ops=entradasDe(ing).slice(0,12),cur=sel[ing]||'';
+    return '<div class="lotrow"><div class="ln">'+esc(ing)+'</div><select data-eting="'+esc(ing)+'" aria-label="Lote de '+esc(ing)+'"><option value="">Sin lote</option>'+
+      ops.map(o=>'<option value="'+esc(o.id)+'"'+(o.id===cur?' selected':'')+'>'+esc((o.lote||'en la foto')+(provNom(o)?' · '+provNom(o):o.marca?' · '+o.marca:'')+' · '+fshort(o.fecha))+'</option>').join('')+'</select></div>'}).join('');
+    $$('#et-ings select').forEach(x=>x.onchange=()=>{sel[x.dataset.eting]=x.value})}
+  dibujar();
+  $('#et-m').onclick=()=>{uds=Math.max(1,uds-1);$('#et-u').textContent=uds};$('#et-p').onclick=()=>{uds++;$('#et-u').textContent=uds};
+  $('#et-no').onclick=()=>verTarta(id);
+  $('#et-save').onclick=()=>{const f=$('#et-f').value||t.fecha,sab=M.cfg.sabores.find(x=>x.id===t.saborId);
+    const o=Object.assign({},t,{fecha:f,uds:uds,nota:$('#et-n').value.trim(),mod:Date.now(),
+      ings:ingsDe().map(ing=>{const e=sel[ing]&&M.e[sel[ing]];return e?{ing:ing,lote:e.lote||'',marca:e.marca||'',eid:e.id}:{ing:ing,lote:'',marca:'',eid:''}})});
+    if(f!==t.fecha){o.lote=loteJuliano(f);o.cad=sumarDias(f,vidaDe(sab||{}))}
+    saveRec('t',o).then(()=>{toast('Tarta corregida: '+uds+' × '+t.sabor);verTarta(id)}).catch(()=>{})}}
+function formTemp(f,camId){const cam=M.cfg.camaras.find(x=>x.id===camId);if(!cam)return;const r=M.c[f+'_'+camId];
+  sheet('<h2>'+(r?'Corregir temperatura':'Anotar temperatura')+'</h2><div class="small muted" style="margin:-6px 0 8px">'+esc(cam.nombre)+' · '+fdate(f)+' · entre '+cam.min+' y '+cam.max+' °C</div>'+
+   '<div class="two"><div><label for="ft-v">Temperatura (°C)</label><input id="ft-v" inputmode="decimal" value="'+(r?esc(r.v):'')+'"></div>'+
+   '<div><label for="ft-h">Hora</label><input id="ft-h" type="time" value="'+esc(r&&r.hora||nowHM())+'"></div></div>'+
+   '<label for="ft-a">Qué hiciste si estaba fuera de rango</label><textarea id="ft-a" rows="2">'+esc(r&&r.accion||'')+'</textarea>'+
+   (r&&r.mod?'<div class="hint">Ya se corrigió el '+fmod(r.mod)+'.</div>':'')+
+   '<button class="btn pri big" id="ft-save">Guardar</button>'+(r?'<button class="btn danger full" id="ft-del" style="margin-top:10px">Borrar esta temperatura</button>':''));
+  $('#ft-save').onclick=()=>{const v=num($('#ft-v').value);if(v==null){toast('Escribe la temperatura');return}
+    const ok=v>=cam.min&&v<=cam.max,acc=$('#ft-a').value.trim();if(!ok&&!acc){toast('Escribe qué hiciste para corregirlo');$('#ft-a').focus();return}
+    const o={id:f+'_'+camId,fecha:f,hora:$('#ft-h').value||nowHM(),cam:camId,camNombre:cam.nombre,v:v,ok:ok,accion:ok?'':acc};if(r||f!==today())o.mod=Date.now();
+    saveRec('c',o).then(()=>{closeSheet();toast('Temperatura guardada')}).catch(()=>{})};
+  if(r)confirmBtn($('#ft-del'),'Pulsa otra vez para borrar',()=>{delRec('c',r.id).then(()=>{closeSheet();toast('Temperatura borrada')}).catch(()=>{})})}
+function limpiezaDia(f){const c=M.cfg;
+  return '<div class="dsec">Limpieza</div><div class="card">'+c.limpieza.map((x,j)=>'<label class="check"><input type="checkbox" data-limpf="'+f+'" data-j="'+j+'"'+(M.l[f+'_'+j]?' checked':'')+'><span>'+esc(x)+'</span></label>').join('')+'</div>'}
+document.addEventListener('change',e=>{const ch=e.target;if(!ch||!ch.dataset||!ch.dataset.limpf)return;const f=ch.dataset.limpf,j=+ch.dataset.j,id=f+'_'+j;
+  (ch.checked?saveRec('l',{id:id,fecha:f,i:j,ts:Date.now()}):delRec('l',id)).then(()=>toast(ch.checked?'Limpieza marcada':'Limpieza desmarcada')).catch(()=>{})});
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-temp]');if(!b)return;formTemp(b.dataset.f,b.dataset.temp)});
+function formEditarDoc(id){const d=M.d[id];if(!d)return;
+  sheet('<h2>Corregir documento</h2><label for="ed-t" style="margin-top:0">Qué es</label><select id="ed-t">'+TIPOS.map(t=>'<option'+(t===d.tipo?' selected':'')+'>'+t+'</option>').join('')+'</select>'+
+   '<label for="ed-p">Proveedor</label>'+provSelect('ed-p',d.provId||'')+
+   '<label for="ed-n">Proveedor o descripción</label><input id="ed-n" value="'+esc(d.nombre||'')+'">'+
+   '<div class="two"><div><label for="ed-f">Fecha</label><input id="ed-f" type="date" value="'+esc(d.fecha)+'"></div><div><label for="ed-v">Caduca</label><input id="ed-v" type="date" value="'+esc(d.vence||'')+'"></div></div>'+
+   '<button class="btn pri big" id="ed-save">Guardar cambios</button><button class="btn full" id="ed-no" style="margin-top:10px">Cancelar</button>');
+  montarProvSelect('ed-p');$('#ed-no').onclick=()=>verDoc(id);
+  $('#ed-save').onclick=()=>leerProvSelect('ed-p').then(pv=>{if(pv===false)return;
+    const o=Object.assign({},d,{tipo:$('#ed-t').value,nombre:$('#ed-n').value.trim(),fecha:$('#ed-f').value||d.fecha,vence:$('#ed-v').value,provId:pv?pv.id:'',provNombre:pv?pv.nombre:'',mod:Date.now()});
+    return saveRec('d',o).then(()=>{toast('Documento corregido');verDoc(id)})}).catch(()=>{})}
+
+/* ===== Bloqueo: Face ID y/o código (los dos opcionales). Solo en este dispositivo ===== */
+const PINK='os_pin',PINF='os_pin_f';
+const LS={getItem:k=>{try{return localStorage.getItem(k)}catch(e){return null}},setItem:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},removeItem:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+const pinGet=()=>{try{const p=JSON.parse(LS.getItem(PINK)||'null');return p&&(p.h||p.f)?p:null}catch(e){return null}};
+const pinRaw=()=>{try{return JSON.parse(LS.getItem(PINK)||'null')||{}}catch(e){return {}}};
+const pinSet=o=>{if(o&&(o.h||o.f)){const v=JSON.stringify(o);LS.setItem(PINK,v);if(LS.getItem(PINK)!==v)throw new Error('sin almacen')}else LS.removeItem(PINK)};
+const b64=a=>btoa(String.fromCharCode.apply(null,new Uint8Array(a))),unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+function pinHash(code,salt){return crypto.subtle.importKey('raw',new TextEncoder().encode(code),'PBKDF2',false,['deriveBits'])
+  .then(k=>crypto.subtle.deriveBits({name:'PBKDF2',salt:salt,iterations:210000,hash:'SHA-256'},k,256)).then(b64)}
+function pinPoner(code){const salt=crypto.getRandomValues(new Uint8Array(16));
+  return pinHash(code,salt).then(h=>{const o=pinRaw();o.s=b64(salt);o.h=h;o.v=1;pinSet(o);LS.removeItem(PINF)})}
+function pinQuitar(){const o=pinRaw();delete o.s;delete o.h;pinSet(o)}
+function pinComprobar(code){const p=pinGet();if(!p||!p.h)return Promise.resolve(false);
+  return pinHash(code,unb64(p.s)).then(h=>{let d=h.length^p.h.length;for(let i=0;i<Math.min(h.length,p.h.length);i++)d|=h.charCodeAt(i)^p.h.charCodeAt(i);return d===0})}
+/* --- Face ID / Touch ID con las llaves de acceso del iPhone (WebAuthn) --- */
+const faceSoporte=()=>window.PublicKeyCredential&&PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable?PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(()=>false):Promise.resolve(false);
+const faceNombre=()=>/Mac/.test(navigator.platform||'')&&!(navigator.maxTouchPoints>1)?'Touch ID':'Face ID';
+function faceActivar(){const uidb=crypto.getRandomValues(new Uint8Array(16));
+  return navigator.credentials.create({publicKey:{rp:{name:(M.cfg&&M.cfg.negocio)||'Puro Umami'},user:{id:uidb,name:'Obrador',displayName:'Obrador'},
+    challenge:crypto.getRandomValues(new Uint8Array(32)),pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+    authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},timeout:60000,attestation:'none'}})
+  .then(c=>{let pk=null,alg=-7;try{const r=c.response;if(r.getPublicKey){const k=r.getPublicKey();if(k)pk=b64(k)}if(r.getPublicKeyAlgorithm)alg=r.getPublicKeyAlgorithm()}catch(e){}
+    const o=pinRaw();o.f={id:b64(c.rawId),pk:pk,alg:alg};pinSet(o);LS.removeItem(PINF)})}
+function derARaw(der){const d=new Uint8Array(der);if(d[0]!==0x30)return d;let i=2;const parte=()=>{i++;const l=d[i++];let v=d.slice(i,i+l);i+=l;while(v.length>32&&v[0]===0)v=v.slice(1);const o=new Uint8Array(32);o.set(v,32-v.length);return o};
+  const r=parte(),s=parte(),out=new Uint8Array(64);out.set(r);out.set(s,32);return out}
+function faceComprobar(){const p=pinGet();if(!p||!p.f)return Promise.resolve(false);const ch=crypto.getRandomValues(new Uint8Array(32));
+  return navigator.credentials.get({publicKey:{challenge:ch,allowCredentials:[{type:'public-key',id:unb64(p.f.id)}],userVerification:'required',timeout:60000}}).then(a=>{
+    if(!a||b64(a.rawId)!==p.f.id)return false;const r=a.response,ad=new Uint8Array(r.authenticatorData),cd=JSON.parse(new TextDecoder().decode(r.clientDataJSON));
+    const chB=b64(ch).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    if(cd.type!=='webauthn.get'||cd.challenge!==chB||cd.origin!==location.origin)return false;if(!(ad[32]&0x04))return false;
+    if(!p.f.pk)return true;
+    const alg=p.f.alg===-257?{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'}:{name:'ECDSA',namedCurve:'P-256'};
+    return Promise.all([crypto.subtle.importKey('spki',unb64(p.f.pk),alg,false,['verify']),crypto.subtle.digest('SHA-256',r.clientDataJSON)]).then(([k,h])=>{
+      const datos=new Uint8Array(ad.length+32);datos.set(ad);datos.set(new Uint8Array(h),ad.length);
+      return crypto.subtle.verify(p.f.alg===-257?alg:{name:'ECDSA',hash:'SHA-256'},k,p.f.alg===-257?r.signature:derARaw(r.signature),datos)})})}
+function faceQuitar(){const o=pinRaw();delete o.f;pinSet(o)}
+/* Clave de recuperación: se enseña una sola vez y solo se guarda cifrada */
+const RALF='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const normClave=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+function nuevaClave(){const r=crypto.getRandomValues(new Uint8Array(16));let k='';for(let i=0;i<16;i++)k+=RALF[r[i]%32];
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  return pinHash(k,salt).then(h=>{const p=pinRaw();p.rs=b64(salt);p.rh=h;pinSet(p);return k.match(/.{4}/g).join('-')})}
+function claveOk(k){const p=pinGet();if(!p||!p.rh)return Promise.resolve(false);
+  return pinHash(normClave(k),unb64(p.rs)).then(h=>h===p.rh)}
+function mostrarClave(k,despues){
+  sheet('<h2>Tu clave de recuperación</h2><div class="small muted">Si Face ID falla o olvidas el código, con esta clave puedes entrar. Envíatela a tu correo o guárdala en Notas. <b>No se volverá a mostrar.</b></div>'+
+   '<div class="card" style="text-align:center;margin-top:12px"><span class="code" id="rk" style="font-size:22px;letter-spacing:.06em">'+esc(k)+'</span></div>'+
+   '<button class="btn pri big" id="rk-env">Enviármela por correo o mensaje</button>'+
+   '<button class="btn full" id="rk-cp" style="margin-top:10px">Copiar</button>'+
+   '<button class="btn full" id="rk-ok" style="margin-top:10px">Ya la he guardado</button>');
+  const txt='Clave de recuperación de la app '+(M.cfg&&M.cfg.negocio||'Puro Umami')+': '+k+'\nSirve para entrar si Face ID falla o olvidas el código. No la compartas con nadie.';
+  $('#rk-env').onclick=()=>{if(navigator.share)navigator.share({title:'Clave de recuperación',text:txt}).catch(()=>{});else location.href='mailto:?subject='+encodeURIComponent('Clave de recuperación')+'&body='+encodeURIComponent(txt)};
+  $('#rk-cp').onclick=()=>{try{navigator.clipboard.writeText(k).then(()=>toast('Copiada'),()=>toast('Mantén pulsada la clave para copiarla'))}catch(e){toast('Mantén pulsada la clave para copiarla')}};
+  $('#rk-ok').onclick=()=>{if(despues)despues();else closeSheet()}}
+const fallos=()=>{try{return JSON.parse(LS.getItem(PINF)||'{"n":0,"u":0}')}catch(e){return {n:0,u:0}}};
+let bloqueada=false,ocultaDesde=0;
+function bloquear(){const p=pinGet();if(!p||bloqueada)return;bloqueada=true;closeSheet();
+  const L=document.createElement('div');L.id='lock';L.setAttribute('role','dialog');L.setAttribute('aria-label','App bloqueada');
+  L.innerHTML='<div class="lk"><img src="logo.png" alt="Puro Umami Cheesecake" width="220"><h2>'+(p.h?'Introduce tu código':'App bloqueada')+'</h2>'+
+   (p.f?'<button class="btn pri big" id="lk-face">Entrar con '+faceNombre()+'</button>':'')+
+   (p.h?(p.f?'<div class="small muted" style="margin:16px 0 4px">o con tu código</div>':'')+'<input id="lk-c" type="password" inputmode="numeric" autocomplete="current-password" aria-label="Código de acceso" maxlength="32">'+
+     '<button class="btn '+(p.f?'':'pri ')+'big" id="lk-go">Entrar</button>':'')+
+   '<div id="lk-m" class="small" role="status"></div>'+
+   '<button type="button" class="link" id="lk-ol" style="margin-top:18px">'+(p.h?'¿Has olvidado el código?':'¿No funciona '+faceNombre()+'?')+'</button></div>';
+  document.body.appendChild(L);$('#view').setAttribute('aria-hidden','true');
+  const ir=()=>{const f=fallos();if(f.u>Date.now()){$('#lk-m').textContent='Espera '+Math.ceil((f.u-Date.now())/1000)+' segundos e inténtalo otra vez.';return}
+    const c=$('#lk-c').value;if(!c)return;$('#lk-go').disabled=true;
+    pinComprobar(c).then(ok=>{$('#lk-go').disabled=false;
+      if(ok){LS.removeItem(PINF);desbloquear();return}
+      f.n++;if(f.n>=5)f.u=Date.now()+Math.min(300,30*Math.pow(2,f.n-5))*1000;LS.setItem(PINF,JSON.stringify(f));
+      $('#lk-c').value='';$('#lk-m').innerHTML='<span class="bad">Código incorrecto</span>'}).catch(()=>{$('#lk-go').disabled=false;$('#lk-m').textContent='No se pudo comprobar. Abre la app desde su icono.'})};
+  const cara=()=>{const b=$('#lk-face');if(!b)return;b.disabled=true;
+    faceComprobar().then(ok=>{b.disabled=false;if(ok)desbloquear();else $('#lk-m').innerHTML='<span class="bad">No se ha podido comprobar. Inténtalo otra vez.</span>'})
+     .catch(()=>{b.disabled=false;$('#lk-m').textContent='Pulsa «Entrar con '+faceNombre()+'».'})};
+  if($('#lk-go')){$('#lk-go').onclick=ir;$('#lk-c').onkeydown=e=>{if(e.key==='Enter')ir()}}
+  if($('#lk-face')){$('#lk-face').onclick=cara;setTimeout(cara,250)}
+  $('#lk-ol').onclick=()=>olvidado();
+  if(!p.f)setTimeout(()=>{const i=$('#lk-c');if(i)i.focus()},100)}
+function olvidado(){const sy=typeof SY!=='undefined'&&SY&&SY.rol!=='invitado'&&SY.email?SY:null,p=pinGet()||{},m=$('#lk-m');
+  m.innerHTML='<div class="card" style="text-align:left;margin-top:12px"><b>Recuperar el acceso</b>'+
+    (sy?'<button class="btn pri full" id="lk-mail" style="margin-top:10px">Enviarme un código a '+esc(SY.email)+'</button>':'')+
+    (p.rh?'<button class="btn full" id="lk-rk" style="margin-top:10px">Usar mi clave de recuperación</button>':'')+
+    (sy?'<button class="btn full" id="lk-sb" style="margin-top:10px">Usar la contraseña de mi base de datos</button>':'')+
+    (!sy&&!p.rh?'<div class="small" style="margin-top:8px">No hay forma de recuperarlo en este móvil: no tienes clave de recuperación ni la base de datos conectada.</div>':'')+'</div>';
+  const paso=(titulo,ph,tipo,fn)=>{m.innerHTML='<div class="card" style="text-align:left;margin-top:12px"><b>'+titulo+'</b><input id="lk-r" '+tipo+' placeholder="'+ph+'" style="margin-top:8px"><button class="btn pri full" id="lk-rok" style="margin-top:10px">Entrar</button><div id="lk-rm" class="small" style="margin-top:6px"></div><button type="button" class="link" id="lk-back" style="margin-top:10px">Volver</button></div>';
+    $('#lk-back').onclick=olvidado;$('#lk-r').focus();
+    $('#lk-rok').onclick=()=>{const v=$('#lk-r').value.trim();if(!v)return;$('#lk-rok').disabled=true;
+      fn(v).then(ok=>{$('#lk-rok').disabled=false;if(ok)recuperado();else $('#lk-rm').innerHTML='<span class="bad">No es correcto. Revísalo.</span>'}).catch(()=>{$('#lk-rok').disabled=false;$('#lk-rm').innerHTML='<span class="bad">No se pudo comprobar. ¿Tienes internet?</span>'})}};
+  const authPost=(ruta,cuerpo)=>fetch(SY.url+'/auth/v1/'+ruta,{method:'POST',headers:{apikey:SY.key,'Content-Type':'application/json'},body:JSON.stringify(cuerpo)});
+  if($('#lk-mail'))$('#lk-mail').onclick=()=>{const b=$('#lk-mail');b.disabled=true;b.textContent='Enviando…';
+    authPost('otp',{email:SY.email,create_user:false}).then(r=>{if(!r.ok)throw r.status;
+      paso('Te hemos enviado un código a '+esc(SY.email)+'. Míralo en tu correo (también en Spam) y escríbelo aquí.','Código del correo','inputmode="numeric" autocomplete="one-time-code" maxlength="10"',
+        v=>authPost('verify',{type:'email',email:SY.email,token:v.replace(/\s/g,'')}).then(r=>r.ok))})
+    .catch(st=>{b.disabled=false;b.textContent='Enviarme un código a '+SY.email;toast(st===429?'Has pedido muchos códigos. Espera unos minutos.':'No se pudo enviar. Revisa la conexión.')})};
+  if($('#lk-rk'))$('#lk-rk').onclick=()=>paso('Escribe tu clave de recuperación','XXXX-XXXX-XXXX-XXXX','autocapitalize="characters" autocomplete="off" spellcheck="false"',claveOk);
+  if($('#lk-sb'))$('#lk-sb').onclick=()=>paso('Contraseña de tu base de datos ('+esc(SY.email)+')','Contraseña','type="password" autocomplete="current-password"',
+    v=>authPost('token?grant_type=password',{email:SY.email,password:v}).then(r=>r.ok))}
+/* Tras recuperar: se quita el bloqueo y entras. Luego decides en Ajustes si vuelves a poner Face ID o código. */
+function recuperado(){LS.removeItem(PINK);LS.removeItem(PINF);desbloquear();
+  setTimeout(()=>{ajustes();abrirSec('aj-seg');toast('Has entrado. Vuelve a activar Face ID o un código si quieres')},50)}
+function desbloquear(){bloqueada=false;const L=$('#lock');if(L)L.remove();$('#view').removeAttribute('aria-hidden');render()}
+{bloquear();
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')ocultaDesde=Date.now();else if(ocultaDesde&&Date.now()-ocultaDesde>60000)bloquear()})}
+function secSeguridad(){const p=pinGet()||{},fn=faceNombre();
+  return (CLOUD?'<div class="small muted">Esta página ya es privada: solo la abres tú con tu cuenta de Claude. Si quieres, añade además un bloqueo en este dispositivo.</div>':'')+'<div class="small muted"'+(CLOUD?' hidden':'')+'>Eres el único dueño de la app: tus datos están en tu móvil, la base de datos solo deja entrar a tu usuario y nadie más puede cambiar nada. El bloqueo es opcional: si no activas nada, la app se abre directamente.</div>'+
+   '<h3>'+fn+'</h3><div id="fc-box" class="small muted">'+(p.f?'<span class="okc">Activado.</span> La app se abre con tu cara (o el código del iPhone si no te reconoce).':'La app se abrirá solo con tu cara. Si no te reconoce, el iPhone te pide su código.')+'</div>'+
+   (p.f?'<button type="button" class="btn danger full" id="fc-off" style="margin-top:10px">Quitar '+fn+'</button>':'<button type="button" class="btn pri full" id="fc-on" style="margin-top:10px">Activar '+fn+'</button>')+
+   '<h3>Código de acceso <span style="font-weight:400">(opcional)</span></h3><div class="small muted">'+(p.h?'<span class="okc">Activado.</span> '+(p.f?'Sirve si '+fn+' no funciona.':'La app pide el código al abrirla y si la dejas más de 1 minuto.'):'No hace falta si usas '+fn+'. Si lo pones, también podrás entrar con él.')+'</div>'+
+   (p.h?'<label for="pn-a">Código actual</label><input id="pn-a" type="password" inputmode="numeric" autocomplete="current-password">':'')+
+   '<div class="two"><div><label for="pn-1">'+(p.h?'Código nuevo':'Código (4 a 12 números)')+'</label><input id="pn-1" type="password" inputmode="numeric" autocomplete="new-password"></div>'+
+   '<div><label for="pn-2">Repítelo</label><input id="pn-2" type="password" inputmode="numeric" autocomplete="new-password"></div></div>'+
+   '<button type="button" class="btn '+(p.f?'':'pri ')+'full" id="pn-ok" style="margin-top:12px">'+(p.h?'Cambiar código':'Activar código')+'</button>'+
+   (p.h?'<button type="button" class="btn danger full" id="pn-off" style="margin-top:10px">Quitar código</button>':'')+
+   (p.f||p.h?'<h3>Si no puedes entrar</h3><div class="small muted">'+(typeof SY!=='undefined'&&SY&&SY.email&&SY.rol!=='invitado'?'Te llegará un código a tu correo ('+esc(SY.email)+'). ':'Cuando conectes tu base de datos, te podrá llegar un código a tu correo. ')+
+     (p.rh?'También puedes usar tu clave de recuperación.':'')+'</div>'+
+     '<button type="button" class="btn full" id="pn-rk" style="margin-top:10px">Nueva clave de recuperación</button>':'')}
+function montarSeguridad(){if(!$('#pn-ok'))return;const p=pinGet()||{},fn=faceNombre();
+  const volver=()=>{ajustes();abrirSec('aj-seg')};
+  const conClave=msg=>{toast(msg);if(pinGet()&&pinGet().rh){volver();return Promise.resolve()}return nuevaClave().then(k=>mostrarClave(k,volver))};
+  const yoSoy=()=>p.f?faceComprobar().catch(()=>false):p.h?pinComprobar($('#pn-a').value||''):Promise.resolve(true);
+  if($('#fc-on'))faceSoporte().then(ok=>{const b=$('#fc-on');if(!b)return;if(!ok){b.disabled=true;b.textContent=fn+' no está disponible aquí';
+      $('#fc-box').textContent=CLOUD?'Dentro de Claude no se puede usar '+fn+'. Úsalo en tu app del iPhone (la del icono). Aquí puedes poner un código.':'Este dispositivo o navegador no permite '+fn+'. Abre la app desde su icono en la pantalla de inicio y revisa que '+fn+' esté activado en Ajustes del iPhone.';return}
+    b.onclick=()=>{b.disabled=true;faceActivar().then(()=>conClave(fn+' activado')).catch(e=>{b.disabled=false;const dentro=CLOUD||(e&&/Security|NotAllowed/.test(e.name||'')&&window.top!==window);
+      if(dentro){$('#fc-box').innerHTML='<span class="warn">Dentro de Claude, el iPhone no deja usar '+fn+'. Úsalo en tu app del iPhone (la del icono). Aquí puedes poner el código.</span>';toast(fn+' no se puede usar dentro de Claude')}else toast('No se activó. Inténtalo otra vez.')})}});
+  if($('#fc-off'))$('#fc-off').onclick=()=>faceComprobar().then(ok=>{if(!ok){toast('No se ha podido comprobar que eres tú');return}faceQuitar();toast(fn+' quitado');volver()}).catch(()=>toast('No se ha podido comprobar que eres tú'));
+  $('#pn-ok').onclick=()=>{const a=$('#pn-1').value,b=$('#pn-2').value;
+    if(!/^\d{4,12}$/.test(a)){toast('El código debe tener de 4 a 12 números');return}if(a!==b){toast('Los dos códigos no coinciden');return}
+    (p.h?pinComprobar($('#pn-a').value||''):Promise.resolve(true)).then(ok=>{if(!ok){toast('El código actual no es correcto');return}return pinPoner(a).then(()=>conClave(p.h?'Código cambiado':'Código activado'))}).catch(()=>toast(CLOUD?'Este navegador no deja guardar el código aquí.':'Este navegador no permite el código. Abre la app desde su icono.'))};
+  if($('#pn-off'))$('#pn-off').onclick=()=>pinComprobar($('#pn-a').value||'').then(ok=>{if(!ok){toast('Escribe el código actual para quitarlo');return}pinQuitar();toast('Código quitado');volver()});
+  if($('#pn-rk'))$('#pn-rk').onclick=()=>yoSoy().then(ok=>{if(!ok){toast(p.f?'No se ha podido comprobar que eres tú':'Escribe primero tu código actual');return}return nuevaClave().then(k=>mostrarClave(k,volver))})}
+
+/* ===== Aparatos, invitados y clave maestra (solo en la app del iPhone/Mac) ===== */
+if(SY&&!SY.rol){SY.rol='admin';if(!SY.disp)SY.disp=nuevoDisp();sySave()}
+const fHora=s=>{if(!s)return '—';const d=new Date(s);return isNaN(d)?'—':fdate(iso(d))+' '+pad(d.getHours())+':'+pad(d.getMinutes())};
+function hayHoja(){const d=$('#dlg');return d&&d.open}
+/* ---- datos de este aparato ---- */
+function borrarLocal(){
+  ['e','t','c','l','d'].forEach(k=>{M[k]={}});Object.keys(fotoMem).forEach(k=>delete fotoMem[k]);outGuardar({});
+  return Promise.all(['kv','fotos','snap'].map(st=>tx(st,s=>s.clear()).catch(()=>{}))).then(()=>{M.cfg=defCfg();return tx('kv',s=>s.put(M.cfg,'cfg')).catch(()=>{})})}
+function accesoQuitado(){SY=null;sySave();borrarLocal().then(()=>{render();
+  sheet('<h2>Ya no tienes acceso</h2><div class="small muted">El administrador del obrador te ha quitado el acceso. Los datos del obrador se han borrado de este aparato.</div><button class="btn pri big" id="aq-ok">Entendido</button>');
+  $('#aq-ok').onclick=closeSheet})}
+/* ---- clave maestra ---- */
+function crearClaveMaestra(despues){const r=crypto.getRandomValues(new Uint8Array(16));let k='';for(let i=0;i<16;i++)k+=RALF[r[i]%32];k=k.match(/.{4}/g).join('-');
+  return rpc('maestra_poner',{p_clave:k}).then(()=>{SY.maestra=true;sySave();
+    sheet('<h2>Tu clave maestra</h2><div class="small muted">Con esta clave podrás entrar como administrador desde un aparato nuevo aunque pierdas el iPhone. <b>Guárdala bien: no se volverá a mostrar</b> y nadie más debe tenerla.</div>'+
+     '<div class="card" style="text-align:center;margin-top:12px"><span class="code" id="mk" style="font-size:22px;letter-spacing:.06em">'+esc(k)+'</span></div>'+
+     '<button class="btn pri big" id="mk-env">Enviármela por correo</button><button class="btn full" id="mk-cp" style="margin-top:10px">Copiar</button><button class="btn full" id="mk-ok" style="margin-top:10px">Ya la he guardado</button>');
+    const txt='Clave maestra de la app del obrador: '+k+'\nSirve para entrar como administrador desde un aparato nuevo. No la compartas con nadie.';
+    $('#mk-env').onclick=()=>{if(navigator.share)navigator.share({title:'Clave maestra',text:txt}).catch(()=>{});else location.href='mailto:'+encodeURIComponent(SY.email||'')+'?subject='+encodeURIComponent('Clave maestra del obrador')+'&body='+encodeURIComponent(txt)};
+    $('#mk-cp').onclick=()=>{try{navigator.clipboard.writeText(k).then(()=>toast('Copiada'),()=>toast('Mantén pulsada la clave para copiarla'))}catch(e){toast('Mantén pulsada la clave para copiarla')}};
+    $('#mk-ok').onclick=()=>{closeSheet();if(despues)despues()}})}
+/* ---- conectar como administrador ---- */
+function conectarAdmin(url,key,email,pass){
+  return syncLogin(url,key,email,pass).then(registrarAparato).then(r=>{
+    if(SY.estado!=='aprobado'){pintarSync();return 'pendiente'}
+    return rpc('maestra_existe').then(hay=>{const seguir=()=>conectarPrimeraVez().then(()=>{toast('Conectado. A partir de ahora se sincroniza solo.');pintarSync()});
+      if(hay){SY.maestra=true;sySave();return seguir().then(()=>'ok')}
+      return crearClaveMaestra(()=>{seguir()}).then(()=>'ok')})})}
+let esperando=false;
+function esperarAprobacion(){if(esperando||!SY||ES_INV())return Promise.resolve();esperando=true;
+  const antes=SY.estado+'|'+SY.codigo;
+  return registrarAparato().then(()=>{if(SY&&SY.estado==='aprobado'){toast('Aparato aprobado. Sincronizando…');SY.maestra=true;sySave();return conectarPrimeraVez().then(pintarSync)}if(SY&&SY.estado+'|'+SY.codigo!==antes)pintarSync()})
+   .catch(()=>{}).then(()=>{esperando=false})}
+/* ---- avisos de aparatos nuevos ---- */
+function pendientes(){return ES_ADMIN_OK()&&Array.isArray(SY.lista)?SY.lista.filter(d=>!d.aprobado):[]}
+function revisarAparatos(){if(!ES_ADMIN_OK())return;const vis=SY.vistos||[],l=SY.lista||[];
+  const nuevosInv=l.filter(d=>d.aprobado&&d.rol==='invitado'&&!vis.includes(d.id)),nuevosPend=l.filter(d=>!d.aprobado&&!vis.includes(d.id));
+  SY.vistos=l.map(d=>d.id);sySave();
+  if(nuevosInv.length&&vis.length)toast('Nuevo invitado: '+nuevosInv.map(d=>d.nombre).join(', '));
+  if(nuevosPend.length&&!hayHoja()&&!(typeof bloqueada!=='undefined'&&bloqueada))avisoAparato(nuevosPend[0]);
+  updateBadges()}
+function avisoAparato(d){
+  sheet('<h2>Alguien quiere entrar</h2><div class="live bad">Un aparato está intentando entrar como administrador en tu base de datos.</div>'+
+   '<div class="lots" style="margin-top:10px"><span class="k">Aparato</span><span>'+esc(d.nombre||'Sin nombre')+'</span><span class="k">Cuándo</span><span>'+fHora(d.creado)+'</span></div>'+
+   '<div class="small muted" style="margin-top:10px">Si eres tú (por ejemplo, tu Mac), escribe el código de 6 cifras que sale en ese aparato. Si no eres tú, recházalo: no puede ver nada mientras no lo aceptes.</div>'+
+   '<label for="ap-c">Código que sale en el otro aparato</label><input id="ap-c" inputmode="numeric" maxlength="7" autocomplete="off">'+
+   '<button class="btn pri big" id="ap-ok">Aceptar</button><button class="btn danger full" id="ap-no" style="margin-top:10px">Rechazar</button>');
+  $('#ap-ok').onclick=()=>{const c=$('#ap-c').value.replace(/\s/g,'');if(!/^\d{6}$/.test(c)){toast('Escribe las 6 cifras');return}
+    rpc('disp_aprobar',{p_id:d.id,p_codigo:c}).then(r=>{if(r==='ok'){toast('Aparato aceptado');closeSheet();sincronizar()}
+      else if(r==='bloqueado'){toast('Demasiados intentos: solicitud borrada');closeSheet();sincronizar()}else if(r==='no_existe'){toast('Esa solicitud ya no existe');closeSheet()}else toast('Código incorrecto')}).catch(()=>toast('No se pudo. Revisa la conexión'))};
+  $('#ap-no').onclick=()=>rpc('disp_echar',{p_id:d.id}).then(()=>{toast('Rechazado');closeSheet();sincronizar()}).catch(()=>toast('No se pudo. Revisa la conexión'))}
+function echar(d){rpc('disp_echar',{p_id:d.id}).then(()=>{toast((d.rol==='invitado'?'Invitado':'Aparato')+' fuera');sincronizar().then(pintarSync)}).catch(()=>toast('No se pudo. Revisa la conexión'))}
+/* ---- invitar ---- */
+const b64u=s=>btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const unb64u=s=>decodeURIComponent(escape(atob(s.replace(/-/g,'+').replace(/_/g,'/'))));
+function baseApp(){return location.origin+location.pathname.replace(/index\.html$/,'')}
+function invitar(){const n=$('#iv-n').value.trim();if(!n){toast('Escribe el nombre de la persona');$('#iv-n').focus();return}
+  $('#iv-go').disabled=true;
+  rpc('invitacion_crear',{p_nombre:n}).then(c=>{const neg=(M.cfg&&M.cfg.negocio)||'Puro Umami';
+    const link=baseApp()+'#inv='+b64u(JSON.stringify({u:SY.url,k:SY.key,c:c,n:neg}));
+    const txt='Hola '+n+', te invito a la app del obrador '+neg+'. Instala la app desde este enlace y ábrelo (caduca en 24 horas y sirve una sola vez):';
+    sheet('<h2>Invitación para '+esc(n)+'</h2><div class="small muted">Envíale este enlace por WhatsApp. Caduca en 24 horas y solo sirve una vez. Podrás echarle cuando quieras.</div>'+
+     '<div class="card" style="text-align:center;margin-top:12px"><div class="small muted">Código</div><span class="code" style="font-size:22px">'+esc(c.match(/.{4}/g).join('-'))+'</span></div>'+
+     '<button class="btn pri big" id="iv-env">Enviar por WhatsApp o mensaje</button><button class="btn full" id="iv-cp" style="margin-top:10px">Copiar enlace</button>'+
+     '<button class="btn full" id="iv-ok" style="margin-top:10px">Hecho</button>');
+    $('#iv-env').onclick=()=>{if(navigator.share)navigator.share({title:'Invitación al obrador',text:txt,url:link}).catch(()=>{});else location.href='https://wa.me/?text='+encodeURIComponent(txt+' '+link)};
+    $('#iv-cp').onclick=()=>{try{navigator.clipboard.writeText(link).then(()=>toast('Enlace copiado'),()=>toast('No se pudo copiar'))}catch(e){toast('No se pudo copiar')}};
+    $('#iv-ok').onclick=()=>{ajustes();abrirSec('aj-syn')}})
+   .catch(e=>{$('#iv-go').disabled=false;toast(/Demasiadas/.test(e&&e.message||'')?'Tienes demasiadas invitaciones sin usar. Cancela alguna.':'No se pudo crear. Revisa la conexión')})}
+/* ---- entrar como invitado ---- */
+function leerInvitacion(txt){try{const m=String(txt||'').match(/#inv=([A-Za-z0-9_-]+)/);if(!m)return null;const o=JSON.parse(unb64u(m[1]));
+  if(!o||typeof o!=='object'||!urlValida(String(o.u||''))||typeof o.k!=='string'||o.k.length<8||o.k.length>600||!/^[A-Z2-9]{12}$/.test(String(o.c||'')))return null;
+  return {u:String(o.u),k:o.k,c:String(o.c),n:String(o.n||'').slice(0,60)}}catch(e){return null}}
+function hojaInvitacion(inv){
+  if(SY&&!ES_INV()){sheet('<h2>Invitación</h2><div class="small muted">Este aparato ya está conectado como administrador. Las invitaciones son para otras personas.</div><button class="btn big" id="hi-x">Cerrar</button>');$('#hi-x').onclick=closeSheet;return}
+  const hay=['e','t','c','l','d'].some(k=>Object.keys(M[k]).length);
+  sheet('<h2>Te han invitado</h2><div class="small muted">Vas a entrar como <b>invitado</b> en la app del obrador <b>'+esc(inv.n||'')+'</b>. Podrás apuntar y corregir registros. El administrador puede quitarte el acceso cuando quiera.</div>'+
+   (hay?'<div class="live warn">Los datos que haya ahora en este aparato se sustituirán por los del obrador.</div>':'')+
+   '<label for="hi-n">Tu nombre</label><input id="hi-n" autocomplete="name" placeholder="Ej. Laura">'+
+   '<button class="btn pri big" id="hi-go">Entrar como invitado</button>'+
+   (navigator.standalone===false&&/iPhone|iPad/.test(navigator.userAgent)?'<div class="hint">Consejo: primero añade la app a la pantalla de inicio (Compartir › Añadir a pantalla de inicio), ábrela y pega este enlace en Ajustes › Conectividad.</div>':''));
+  $('#hi-go').onclick=()=>{const n=$('#hi-n').value.trim();if(!n){toast('Escribe tu nombre');return}$('#hi-go').disabled=true;
+    const tmp={url:inv.u,key:inv.k,rol:'invitado',disp:nuevoDisp(),estado:'',lastR:'',lastF:'',ok:0,err:'',negocio:inv.n,nombre:n};const ant=SY;SY=tmp;
+    rpc('invitacion_usar',{p_codigo:inv.c,p_id:tmp.disp.id,p_secreto:tmp.disp.s,p_nombre:n}).then(r=>{
+      if(!r||!r.ok){SY=ant;toast('La invitación no es válida o ha caducado. Pide otra.');$('#hi-go').disabled=false;return}
+      SY.dueno=r.dueno;SY.estado='aprobado';sySave();
+      return borrarLocal().then(()=>conectarPrimeraVez()).then(()=>{closeSheet();toast('Has entrado como invitado');render()})})
+    .catch(()=>{SY=ant;sySave();$('#hi-go').disabled=false;toast('No se pudo entrar. Revisa la conexión')})}}
+function revisarEnlace(){const inv=leerInvitacion(location.hash);if(!inv)return;try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}
+  setTimeout(()=>{if(typeof bloqueada!=='undefined'&&bloqueada){const t=setInterval(()=>{if(!bloqueada){clearInterval(t);hojaInvitacion(inv)}},500)}else hojaInvitacion(inv)},300)}
+window.addEventListener('hashchange',revisarEnlace);
+/* ---- pantalla en Ajustes › Conectividad ---- */
 function pintarSync(){const box=document.getElementById('sync-box');if(!box)return;
-  if(SY){box.innerHTML='<div class="card"><b>Sincronización automática activada</b><div class="small muted">'+esc(SY.email)+'</div><div class="live '+(SY.err?'warn':'okc')+'" id="sy-st">'+esc(textoEstado())+'</div>'+
-      '<div class="two" style="margin-top:10px"><button type="button" class="btn" id="sy-now">Sincronizar ahora</button><button type="button" class="btn danger" id="sy-off">Desconectar</button></div></div>';
-    $('#sy-now').onclick=()=>SY.err==='sesion'?(SY=null,sySave(),pintarSync()):sincronizar(true);
-    confirmBtn($('#sy-off'),'Pulsa otra vez',()=>{SY=null;sySave();outGuardar({});pintarSync();toast('Sincronización desconectada. Tus datos siguen en este aparato.')});return}
+  const ae=document.activeElement;if(ae&&box.contains(ae)&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)){const st=$('#sy-st');if(st)st.textContent=textoEstado();return}
+  if(SY&&ES_INV()){box.innerHTML='<div class="card"><b>Eres invitado</b><div class="small muted">Obrador '+esc(SY.negocio||'')+(SY.nombre?' · '+esc(SY.nombre):'')+'</div><div class="live '+(SY.err?'warn':'okc')+'">'+esc(textoEstado())+'</div>'+
+      '<div class="two" style="margin-top:10px"><button type="button" class="btn" id="sy-now">Sincronizar ahora</button><button type="button" class="btn danger" id="sy-off">Salir</button></div></div>';
+    $('#sy-now').onclick=()=>sincronizar(true);
+    confirmBtn($('#sy-off'),'Pulsa otra vez: se borran los datos de aquí',()=>{SY=null;sySave();borrarLocal().then(()=>{render();pintarSync();toast('Has salido del obrador')})});return}
+  if(SY&&SY.estado==='pendiente'){const c=String(SY.codigo||'');
+    box.innerHTML='<div class="card"><b>Esperando tu aprobación</b><div class="small muted">Por seguridad, este aparato no ve nada hasta que lo aceptes desde un aparato tuyo ya aprobado (por ejemplo, tu iPhone).</div>'+
+      '<div style="text-align:center;margin:12px 0"><div class="small muted">Código de este aparato</div><span class="code" id="sy-cod" style="font-size:30px;letter-spacing:.12em">'+esc(c.slice(0,3)+' '+c.slice(3))+'</span></div>'+
+      '<div class="small">En tu iPhone abre la app: te saldrá «Alguien quiere entrar». Escribe este código y pulsa Aceptar.</div>'+
+      '<details class="more" style="margin-top:12px"><summary>¿No tienes el iPhone? Usa tu clave maestra</summary><input id="sy-mk" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX"><button type="button" class="btn full" id="sy-mkgo" style="margin-top:8px">Entrar con la clave maestra</button></details>'+
+      '<button type="button" class="btn danger full" id="sy-off" style="margin-top:12px">Cancelar</button></div>';
+    $('#sy-mkgo').onclick=()=>{const k=$('#sy-mk').value.trim();if(!k)return;rpc('maestra_usar',{p_id:SY.disp.id,p_secreto:SY.disp.s,p_clave:k}).then(ok=>{if(ok)esperarAprobacion();else toast('Clave maestra incorrecta')}).catch(()=>toast('No se pudo. Revisa la conexión'))};
+    confirmBtn($('#sy-off'),'Pulsa otra vez',()=>{SY=null;sySave();pintarSync()});return}
+  if(SY){const l=SY.lista||[],yo=SY.disp&&SY.disp.id;
+    const fila=d=>'<div class="aj-row"><div><b>'+esc(d.nombre||'Sin nombre')+'</b>'+(d.id===yo?' <span class="pill">Este aparato</span>':'')+
+      '<div class="small muted">'+(d.rol==='invitado'?'Invitado':'Administrador')+' · '+(d.aprobado?'último uso '+fHora(d.visto):'<span class="bad">pendiente</span>')+'</div></div>'+
+      (d.id===yo?'':d.aprobado?'<button type="button" class="btn sm danger" data-echar="'+esc(d.id)+'">Echar</button>':'<button type="button" class="btn sm" data-pend="'+esc(d.id)+'">Revisar</button>')+'</div>';
+    box.innerHTML='<div class="card"><b>Sincronización automática activada</b><div class="small muted">'+esc(SY.email||'')+' · eres el administrador</div><div class="live '+(SY.err?'warn':'okc')+'" id="sy-st">'+esc(textoEstado())+'</div>'+
+      '<div class="two" style="margin-top:10px"><button type="button" class="btn" id="sy-now">Sincronizar ahora</button><button type="button" class="btn danger" id="sy-off">Desconectar</button></div></div>'+
+      '<h3>Aparatos y personas con acceso</h3>'+(l.length?l.map(fila).join(''):'<div class="small muted">Pulsa «Sincronizar ahora» para ver la lista.</div>')+
+      '<h3>Invitar a alguien</h3><div class="small muted">Podrá apuntar, corregir y borrar registros, pero no tocar Ajustes, ni ver tus estadísticas, ni invitar a nadie.</div>'+
+      '<label for="iv-n">Nombre de la persona</label><input id="iv-n" placeholder="Ej. Laura"><button type="button" class="btn pri full" id="iv-go" style="margin-top:10px">Crear invitación</button>'+
+      '<div id="iv-lista"></div>'+
+      '<h3>Clave maestra</h3><div class="small muted">Sirve para entrar como administrador desde un aparato nuevo si pierdes el iPhone.</div><button type="button" class="btn full" id="mk-new" style="margin-top:8px">Hacer una clave maestra nueva</button>';
+    $('#sy-now').onclick=()=>SY.err==='sesion'?(SY=null,sySave(),pintarSync()):sincronizar(true).then(pintarSync);
+    confirmBtn($('#sy-off'),'Pulsa otra vez',()=>{SY=null;sySave();outGuardar({});pintarSync();toast('Sincronización desconectada. Tus datos siguen en este aparato.')});
+    $$('[data-echar]').forEach(b=>{const d=l.find(x=>x.id===b.dataset.echar);confirmBtn(b,'¿Seguro?',()=>echar(d))});
+    $$('[data-pend]').forEach(b=>b.onclick=()=>avisoAparato(l.find(x=>x.id===b.dataset.pend)));
+    $('#iv-go').onclick=invitar;
+    confirmBtn($('#mk-new'),'Pulsa otra vez: la anterior dejará de servir',()=>crearClaveMaestra(()=>{ajustes();abrirSec('aj-syn')}).catch(()=>toast('No se pudo. Revisa la conexión')));
+    if(ES_ADMIN_OK())api('/rest/v1/invitaciones?select=id,nombre,creada,caduca,usada&usada=eq.false&order=creada.desc').then(v=>{const w=$('#iv-lista');if(!w)return;
+      v=(v||[]).filter(x=>new Date(x.caduca)>new Date());if(!v.length){w.innerHTML='';return}
+      w.innerHTML='<div class="small muted" style="margin-top:10px">Invitaciones sin usar</div>'+v.map(x=>'<div class="aj-row"><div><b>'+esc(x.nombre)+'</b><div class="small muted">caduca '+fHora(x.caduca)+'</div></div><button type="button" class="btn sm" data-ivx="'+esc(x.id)+'">Cancelar</button></div>').join('');
+      $$('[data-ivx]').forEach(b=>b.onclick=()=>rpc('invitacion_cancelar',{p_id:b.dataset.ivx}).then(()=>{toast('Invitación cancelada');pintarSync()}).catch(()=>toast('No se pudo')))}).catch(()=>{});
+    return}
   box.innerHTML='<div class="small muted">Conecta tu base de datos para que el iPhone y el Mac tengan siempre lo mismo, sin hacer nada.</div>'+
     '<label for="sy-u">Dirección del proyecto (Project URL)</label><input id="sy-u" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://xxxx.supabase.co">'+
     '<label for="sy-k">Clave pública (anon public o publishable)</label><textarea id="sy-k" rows="3" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="eyJhbGciOi..."></textarea>'+
     '<label for="sy-e">Email de tu usuario</label><input id="sy-e" type="email" autocapitalize="none" autocorrect="off">'+
     '<label for="sy-p">Contraseña de tu usuario</label><input id="sy-p" type="password">'+
-    '<button type="button" class="btn pri big" id="sy-go">Conectar y sincronizar</button><div class="hint">La contraseña no se guarda en la app. Solo tu usuario puede leer tus datos.</div>';
+    '<button type="button" class="btn pri big" id="sy-go">Conectar como administrador</button><div class="hint">La contraseña no se guarda en la app. Un aparato nuevo no ve nada hasta que lo apruebes.</div>'+
+    '<h3>¿Te han invitado?</h3><label for="sy-inv">Pega aquí el enlace de invitación</label><input id="sy-inv" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://…#inv=…"><button type="button" class="btn full" id="sy-invgo" style="margin-top:8px">Usar invitación</button>';
+  $('#sy-invgo').onclick=()=>{const inv=leerInvitacion($('#sy-inv').value);if(!inv){toast('Ese enlace no es una invitación válida');return}hojaInvitacion(inv)};
   $('#sy-go').onclick=()=>{const b=$('#sy-go');b.disabled=true;b.textContent='Conectando…';
-    syncLogin($('#sy-u').value,$('#sy-k').value,$('#sy-e').value,$('#sy-p').value).then(conectarPrimeraVez)
-      .then(()=>{toast('Conectado. A partir de ahora se sincroniza solo.');pintarSync()})
-      .catch(e=>{toast(e.message||'No se pudo conectar');b.disabled=false;b.textContent='Conectar y sincronizar'})}}
-function syncAviso(){if(!SY)return null;if(SY.err==='sesion')return {k:'bad',t:'La sincronización está desconectada',s:'Vuelve a conectar en Ajustes',aj:1,b:'Ajustes'};
+    conectarAdmin($('#sy-u').value,$('#sy-k').value,$('#sy-e').value,$('#sy-p').value)
+      .catch(e=>{SY=null;sySave();toast(e.message||'No se pudo conectar');b.disabled=false;b.textContent='Conectar como administrador'})}}
+function syncAviso(){if(!SY)return null;
+  if(SY.err==='sesion'&&!ES_INV())return {k:'bad',t:'La sincronización está desconectada',s:'Vuelve a conectar en Ajustes',aj:1,b:'Ajustes'};
+  if(!ES_INV()&&SY.estado==='pendiente')return {k:'warn',t:'Este aparato espera tu aprobación',s:'Código '+(SY.codigo||''),aj:1,b:'Ver'};
+  const p=pendientes();if(p.length)return {k:'bad',t:'Alguien quiere entrar en tu base de datos',s:p.map(d=>d.nombre).join(', ')+' · acéptalo solo si eres tú',aj:1,b:'Revisar'};
   if(navigator.onLine&&SY.ok&&Date.now()-SY.ok>86400000)return {k:'warn',t:'Hace más de un día que no se sincroniza',s:'Abre la app con internet o revisa Ajustes',aj:1,b:'Ajustes'};return null}
+revisarEnlace();
+
+/* ---- Ajustes para invitados: solo su seguridad y su conexión ---- */
+function ajustesInvitado(){
+  const sec=(id,t,x,c)=>'<details class="aj" id="'+id+'"><summary><span>'+t+'</span>'+(x?'<span class="aj-x">'+x+'</span>':'')+'</summary><div class="aj-b">'+c+'</div></details>';
+  sheet('<h2>Ajustes</h2><div class="small muted" style="margin-bottom:10px">Eres invitado: los ajustes del obrador solo los cambia el administrador.</div>'+
+   sec('aj-seg','Seguridad',pinGet()?'Activada':'Sin bloqueo','<div id="seg-box">'+secSeguridad()+'</div>')+
+   sec('aj-syn','Conectividad','Invitado','<div id="sync-box"></div>'));
+  montarSeguridad();pintarSync()}
 
 function autoLote(){}function autoDoc(){}
 
